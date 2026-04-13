@@ -47,4 +47,3 @@ next-env.d.ts
 tailwindcss-*.log
 /bun.lock
 /bun.lockb
-public/hero-frames/
