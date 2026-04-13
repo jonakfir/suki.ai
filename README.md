@@ -53,25 +53,47 @@ cd suki.ai
 bun install
 ```
 
-### 3. Set up Supabase
+### 3. Configure environment variables
+
+**If Jonathan sent you the Supabase keys already** (shared project — all test
+data lives in the same DB so you don't have to set anything up):
+
+```bash
+cp .env.local.example .env.local
+```
+
+Then open `.env.local` and paste the three Supabase values he sent you into:
+```env
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+```
+
+Get your own Anthropic key (free trial credit covers development) at
+<https://console.anthropic.com/settings/keys> and paste it as:
+```env
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+Skip the "Set up Supabase" section below and jump to **step 4**.
+
+> ⚠️ The `SUPABASE_SERVICE_ROLE_KEY` is full-admin access to the shared DB.
+> Don't commit it, don't paste it in Slack/Discord/screenshots, don't share
+> it with anyone else. Keep `.env.local` local.
+
+**If you're setting up your own Supabase project** (fully isolated — your own
+database and users):
+
 1. Create a free project at <https://supabase.com>.
 2. In **SQL Editor**, paste and run the migration at
    `supabase/migrations/001_initial.sql` (creates enums, tables, and the RLS
    policies for `users_profile`, `user_products`, and `recommendations`).
 3. In **Authentication → Providers**, enable **Email** (and **Google** if you
    want that login button — you'll need a Google OAuth client).
-4. Grab these from **Project Settings → API** for the next step:
-   - `Project URL`
-   - `anon` public key
-   - `service_role` key
+4. From **Project Settings → API** grab `Project URL`, `anon` key, and
+   `service_role` key. Paste them into `.env.local` along with your
+   Anthropic key:
 
-### 4. Configure environment variables
-```bash
-cp .env.local.example .env.local
-# then edit .env.local with your real values
-```
-
-Minimum required for the app to run:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=ey...
@@ -79,7 +101,7 @@ SUPABASE_SERVICE_ROLE_KEY=ey...
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-### 5. Start the dev server
+### 4. Start the dev server
 ```bash
 bun run dev
 ```
