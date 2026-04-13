@@ -72,6 +72,22 @@ function mapCategory(tags: string[] | undefined): string {
   return "other";
 }
 
+/**
+ * Returns true if an ingredient string looks like OCR garbage or a non-ingredient
+ * artifact (e.g. "2021502 3", "INGREDIENTS", single letters).
+ */
+function isJunkIngredient(s: string): boolean {
+  const t = s.trim();
+  if (t.length < 3) return true;
+  // Pure numbers / numbers with spaces (barcode fragments)
+  if (/^\d[\d\s]*$/.test(t)) return true;
+  // Digits mixed with very few letters — e.g. "2021502 3", "50ml", "12g"
+  if (/\d/.test(t) && t.replace(/[\d\s.]/g, "").length < 3) return true;
+  // All-caps single words that are labels, not ingredients (e.g. "INGREDIENTS")
+  if (/^[A-Z]{3,}$/.test(t) && ["INGREDIENTS", "COMPOSITION", "INCI", "AQUA"].includes(t)) return true;
+  return false;
+}
+
 function extractIngredients(product: OBFRawProduct): {
   list: string[];
   raw: string;
@@ -82,6 +98,7 @@ function extractIngredients(product: OBFRawProduct): {
     const list = product.ingredients
       .map((i) => i.text ?? i.id?.replace(/^en:/, "") ?? "")
       .filter(Boolean)
+      .filter((s) => !isJunkIngredient(s))
       .slice(0, 20);
     return { list, raw: raw || list.join(", ") };
   }
@@ -91,6 +108,7 @@ function extractIngredients(product: OBFRawProduct): {
       .split(/,\s*/)
       .map((s) => s.trim())
       .filter(Boolean)
+      .filter((s) => !isJunkIngredient(s))
       .slice(0, 20);
     return { list, raw };
   }
@@ -98,11 +116,27 @@ function extractIngredients(product: OBFRawProduct): {
   return { list: [], raw: "" };
 }
 
+/** Product names containing these words are not skincare — skip them. */
+const NON_SKINCARE_KEYWORDS =
+  /\b(shampoo|toothpaste|deodorant|hair\s*dye|hair\s*color|mouthwash|hand\s*soap|dish\s*soap|laundry|perfume|cologne|nail\s*polish|body\s*wash)\b/i;
+
+/** Minimum number of real (non-junk) ingredients for a product to qualify. */
+const MIN_INGREDIENT_COUNT = 3;
+
+/** Minimum OBF completeness score (0–1) to include a product. */
+const MIN_COMPLETENESS = 0.2;
+
 function toOBFProduct(p: OBFRawProduct): OBFProduct | null {
   if (!p.product_name?.trim()) return null;
 
+  // Completeness gate — very incomplete entries are unreliable
+  if ((p.completeness ?? 0) < MIN_COMPLETENESS) return null;
+
+  // Skip obviously non-skincare products
+  if (NON_SKINCARE_KEYWORDS.test(p.product_name)) return null;
+
   const { list, raw } = extractIngredients(p);
-  if (list.length === 0) return null;
+  if (list.length < MIN_INGREDIENT_COUNT) return null;
 
   return {
     barcode: p.code ?? "",

@@ -2,7 +2,15 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { callClaude, isClaudeConfigured } from "@/lib/claude-client";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { ADMIN_USER_ID } from "@/lib/admin";
 import { searchProducts, type OBFProduct } from "@/lib/open-beauty-facts";
+import {
+  analyzeIngredients,
+  checkAllergens,
+  scoreSkinFit,
+  type IngredientAnalysis,
+} from "@/lib/ingredient-db";
 
 /* ── Claude-only fallback prompt (original behavior) ── */
 const FALLBACK_SYSTEM = `You are a skincare product knowledge base. When given a search query, return 5 real, commonly available skincare products that match. Prefer well-known brands (CeraVe, The Ordinary, La Roche-Posay, Paula's Choice, COSRX, Neutrogena, Kiehl's, Drunk Elephant, Tatcha, SkinCeuticals, etc.).
@@ -27,8 +35,17 @@ Rules:
 - "category" must exactly match one of the allowed values
 - Keep descriptions under 15 words`;
 
+/* ── Response shape for ingredient analysis ── */
+interface ProductIngredientAnalysis {
+  concerns_addressed: string[];
+  warnings: string[];
+  skin_fit_score: number;
+  has_fragrance: boolean;
+  comedogenic_score: number;
+}
+
 /* ── OBF ranking prompt — Claude picks the best matches ── */
-const RANK_SYSTEM = `You are a skincare product expert. You will receive a list of real products from a database and a user search query. Pick the 5 most relevant products and return them ranked.
+const RANK_SYSTEM = `You are a skincare product expert. You will receive a list of real products from a database and a user search query. Each product may include ingredient analysis data (skin fit score, warnings, concerns addressed). Use this data to make better picks — prefer products with higher skin fit scores and fewer warnings.
 
 For each product, return the category (must be one of: cleanser, toner, serum, moisturizer, sunscreen, exfoliant, mask, eye_cream, oil, treatment, other), an estimated price range, and a short description.
 
@@ -48,14 +65,34 @@ Rules:
 - "index" is the zero-based index from the product list provided
 - Pick at most 5, fewer if the list is small
 - "description" under 15 words
-- Estimate price_range from your knowledge of the brand/product`;
+- Estimate price_range from your knowledge of the brand/product
+- Prefer products with higher skin_fit_score and fewer warnings`;
 
-function buildRankPrompt(query: string, products: OBFProduct[]): string {
+interface AnalysisWithScore {
+  analysis: IngredientAnalysis;
+  skin_fit_score: number;
+}
+
+function buildRankPrompt(
+  query: string,
+  products: OBFProduct[],
+  analysisMap?: Map<number, AnalysisWithScore>
+): string {
   const listing = products
-    .map(
-      (p, i) =>
-        `[${i}] ${p.brand} — ${p.name} (ingredients: ${p.ingredients.slice(0, 8).join(", ")})`
-    )
+    .map((p, i) => {
+      let line = `[${i}] ${p.brand} — ${p.name} (ingredients: ${p.ingredients.slice(0, 8).join(", ")})`;
+      const entry = analysisMap?.get(i);
+      if (entry) {
+        line += ` | skin_fit_score: ${entry.skin_fit_score}`;
+        if (entry.analysis.concerns_addressed.length > 0) {
+          line += ` | addresses: ${entry.analysis.concerns_addressed.join(", ")}`;
+        }
+        if (entry.analysis.warnings.length > 0) {
+          line += ` | warnings: ${entry.analysis.warnings.join("; ")}`;
+        }
+      }
+      return line;
+    })
     .join("\n");
   return `Search query: "${query}"\n\nProducts:\n${listing}`;
 }
@@ -69,7 +106,8 @@ interface RankPick {
 
 function enrichProduct(
   obf: OBFProduct,
-  pick: RankPick
+  pick: RankPick,
+  ingredientAnalysis?: ProductIngredientAnalysis
 ): Record<string, unknown> {
   const q = `${obf.brand} ${obf.name}`.trim();
   const buy_url = q
@@ -86,6 +124,71 @@ function enrichProduct(
     image_url: obf.image_url,
     barcode: obf.barcode,
     source: "open_beauty_facts",
+    ...(ingredientAnalysis ? { ingredient_analysis: ingredientAnalysis } : {}),
+  };
+}
+
+/**
+ * Fetch the authenticated user's skin profile (skin_type, skin_concerns,
+ * known_allergies). Returns null fields when the profile doesn't exist or
+ * the user is unauthenticated — callers should treat null as "skip".
+ */
+async function fetchUserProfile(isAdmin: boolean): Promise<{
+  skinType: string | null;
+  skinConcerns: string[];
+  knownAllergies: string[];
+}> {
+  const empty = { skinType: null, skinConcerns: [], knownAllergies: [] };
+  try {
+    const supabase = isAdmin ? createAdminClient() : await createClient();
+    const userId = isAdmin
+      ? ADMIN_USER_ID
+      : (await supabase.auth.getUser()).data.user?.id;
+    if (!userId) return empty;
+    const { data } = await supabase
+      .from("users_profile")
+      .select("skin_type, skin_concerns, known_allergies")
+      .eq("user_id", userId)
+      .single();
+    if (!data) return empty;
+    return {
+      skinType: data.skin_type ?? null,
+      skinConcerns: data.skin_concerns ?? [],
+      knownAllergies: data.known_allergies ?? [],
+    };
+  } catch {
+    return empty;
+  }
+}
+
+/**
+ * Run ingredient analysis on a list of OBF products. Returns a map from
+ * product index to its analysis + skin-fit score.
+ */
+function analyzeProducts(
+  products: OBFProduct[],
+  skinType: string | null,
+  concerns: string[]
+): Map<number, AnalysisWithScore> {
+  const map = new Map<number, AnalysisWithScore>();
+  for (let i = 0; i < products.length; i++) {
+    const analysis = analyzeIngredients(products[i].ingredients);
+    const skin_fit_score = scoreSkinFit(analysis, skinType ?? "normal", concerns);
+    map.set(i, { analysis, skin_fit_score });
+  }
+  return map;
+}
+
+/**
+ * Convert an AnalysisWithScore into the response-friendly shape.
+ */
+function toProductAnalysis(entry: AnalysisWithScore): ProductIngredientAnalysis {
+  return {
+    concerns_addressed: entry.analysis.concerns_addressed,
+    warnings: entry.analysis.warnings,
+    skin_fit_score: entry.skin_fit_score,
+    has_fragrance: entry.analysis.has_fragrance,
+    comedogenic_score: entry.analysis.comedogenic_score,
   };
 }
 
@@ -117,33 +220,72 @@ export async function POST(request: Request) {
 
     const trimmed = query.trim();
 
+    /* ── Fetch user profile (non-blocking — falls back to defaults) ── */
+    const { skinType, skinConcerns, knownAllergies } =
+      await fetchUserProfile(isAdmin);
+
     /* ── Step 1: Try Open Beauty Facts ── */
     const obfResults = await searchProducts(trimmed);
 
-    /* ── Step 2: If OBF has results, let Claude rank them ── */
+    /* ── Step 2: If OBF has results, run ingredient analysis & let Claude rank ── */
     if (obfResults.length > 0) {
       try {
-        const { text } = await callClaude({
-          system: RANK_SYSTEM,
-          prompt: buildRankPrompt(trimmed, obfResults),
-          maxTokens: 800,
-        });
+        /* ── 2a: Ingredient analysis on every OBF result ── */
+        const analysisMap = analyzeProducts(obfResults, skinType, skinConcerns);
 
-        const match = text.match(/\{[\s\S]*\}/);
-        if (match) {
-          const parsed = JSON.parse(match[0]) as { picks: RankPick[] };
-          const products = (parsed.picks ?? [])
-            .filter(
-              (p) =>
-                typeof p.index === "number" &&
-                p.index >= 0 &&
-                p.index < obfResults.length
-            )
-            .slice(0, 5)
-            .map((pick) => enrichProduct(obfResults[pick.index], pick));
+        /* ── 2b: Allergen filtering — remove products that match known allergies ── */
+        let filteredProducts = obfResults;
+        let filteredAnalysisMap = analysisMap;
 
-          if (products.length > 0) {
-            return NextResponse.json({ products });
+        if (knownAllergies.length > 0) {
+          const safeIndices: number[] = [];
+          for (let i = 0; i < obfResults.length; i++) {
+            const hits = checkAllergens(obfResults[i].ingredients, knownAllergies);
+            if (hits.length === 0) {
+              safeIndices.push(i);
+            }
+          }
+          filteredProducts = safeIndices.map((i) => obfResults[i]);
+          filteredAnalysisMap = new Map<number, AnalysisWithScore>();
+          safeIndices.forEach((origIdx, newIdx) => {
+            const entry = analysisMap.get(origIdx);
+            if (entry) filteredAnalysisMap.set(newIdx, entry);
+          });
+        }
+
+        if (filteredProducts.length === 0) {
+          // All products filtered out by allergens — fall through to Claude-only
+        } else {
+          /* ── 2c: Claude ranking with ingredient intelligence ── */
+          const { text } = await callClaude({
+            system: RANK_SYSTEM,
+            prompt: buildRankPrompt(trimmed, filteredProducts, filteredAnalysisMap),
+            maxTokens: 800,
+          });
+
+          const match = text.match(/\{[\s\S]*\}/);
+          if (match) {
+            const parsed = JSON.parse(match[0]) as { picks: RankPick[] };
+            const products = (parsed.picks ?? [])
+              .filter(
+                (p) =>
+                  typeof p.index === "number" &&
+                  p.index >= 0 &&
+                  p.index < filteredProducts.length
+              )
+              .slice(0, 5)
+              .map((pick) => {
+                const entry = filteredAnalysisMap.get(pick.index);
+                return enrichProduct(
+                  filteredProducts[pick.index],
+                  pick,
+                  entry ? toProductAnalysis(entry) : undefined
+                );
+              });
+
+            if (products.length > 0) {
+              return NextResponse.json({ products });
+            }
           }
         }
       } catch (rankErr) {
