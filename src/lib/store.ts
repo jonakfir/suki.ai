@@ -43,22 +43,24 @@ export interface UserProduct {
   created_at: string;
 }
 
+export interface ProductSuggestion {
+  name: string;
+  brand: string;
+  category: string;
+  reason: string;
+  price_range?: string;
+  where_to_buy?: string;
+  key_ingredients?: string[];
+  budget_tier?: string;
+  complexity_impact?: string;
+  buy_url?: string | null;
+  image_url?: string | null;
+}
+
 export interface Recommendation {
   id: string;
   type: "add" | "avoid";
-  product_suggestion: {
-    name: string;
-    brand: string;
-    category: string;
-    reason: string;
-    price_range?: string;
-    where_to_buy?: string;
-    key_ingredients?: string[];
-    budget_tier?: string;
-    complexity_impact?: string;
-    buy_url?: string | null;
-    image_url?: string | null;
-  };
+  product_suggestion: ProductSuggestion;
   generated_at: string;
   is_dismissed: boolean;
 }

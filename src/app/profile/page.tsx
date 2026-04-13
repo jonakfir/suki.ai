@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { isAdminSession, ADMIN_USER_ID } from "@/lib/admin";
+import { isAdminSession, clearAdminSession, ADMIN_USER_ID } from "@/lib/admin";
 import { useRouter } from "next/navigation";
 import {
   useStore,
@@ -43,7 +43,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     async function load() {
-      const admin = isAdminSession();
+      const admin = await isAdminSession();
       let userId: string | null = null;
 
       if (admin) {
@@ -93,7 +93,7 @@ export default function ProfilePage() {
 
   const handleSave = async () => {
     setSaving(true);
-    const admin = isAdminSession();
+    const admin = await isAdminSession();
     const payload = {
       skin_type: profile.skin_type,
       skin_concerns: profile.skin_concerns,
@@ -130,7 +130,7 @@ export default function ProfilePage() {
   };
 
   const handleSignOut = async () => {
-    document.cookie = "admin-session=; path=/; max-age=0";
+    await clearAdminSession();
     await supabase.auth.signOut();
     useStore.getState().resetUserData();
     router.push("/");

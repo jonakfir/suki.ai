@@ -33,37 +33,127 @@ export function GlobalReveal() {
   const [enabled, setEnabled] = useState(false);
   const [missing, setMissing] = useState(false);
 
-  // Probe frame_0001 to check if frames exist
+  function drawFrame(index: number) {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Find the closest loaded frame (backward fallback to prevent flicker)
+    let img: HTMLImageElement | null = null;
+    for (let i = index; i >= 0; i--) {
+      if (framesRef.current[i]) {
+        img = framesRef.current[i];
+        break;
+      }
+    }
+    if (!img) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const cw = rect.width;
+    const ch = rect.height;
+    ctx.clearRect(0, 0, cw, ch);
+
+    // object-fit: cover scaling
+    const scale = Math.max(cw / img.naturalWidth, ch / img.naturalHeight);
+    const dw = img.naturalWidth * scale;
+    const dh = img.naturalHeight * scale;
+    const dx = (cw - dw) / 2;
+    const dy = (ch - dh) / 2;
+    ctx.drawImage(img, dx, dy, dw, dh);
+  }
+
+  // Probe frame_0001 to check if frames exist (retry with exponential backoff)
   useEffect(() => {
-    const probe = new Image();
-    probe.onload = () => setEnabled(true);
-    probe.onerror = () => setMissing(true);
-    probe.src = FRAME_PATH(1);
+    const delays = [300, 900, 2700];
+    let attempt = 0;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const tryProbe = () => {
+      if (cancelled) return;
+      const probe = new Image();
+      probe.onload = () => {
+        if (!cancelled) setEnabled(true);
+      };
+      probe.onerror = () => {
+        if (cancelled) return;
+        if (attempt < delays.length) {
+          timer = setTimeout(tryProbe, delays[attempt]);
+          attempt += 1;
+        } else {
+          setMissing(true);
+        }
+      };
+      probe.src = FRAME_PATH(1) + `?probe=${attempt}`;
+    };
+
+    tryProbe();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
   }, []);
 
-  // Preload all frames
+  // Preload all frames in chunks: first 24 immediately (LCP), then the
+  // remaining 144 in chunks of 24 scheduled via requestIdleCallback.
   useEffect(() => {
     if (!enabled) return;
     framesRef.current = new Array(TOTAL_FRAMES).fill(null);
     let cancelled = false;
+    const CHUNK_SIZE = 24;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const idleHandles: number[] = [];
 
-    for (let i = 1; i <= TOTAL_FRAMES; i++) {
+    const loadFrame = (i: number) => {
       const img = new Image();
       img.src = FRAME_PATH(i);
       img.onload = () => {
         if (cancelled) return;
         framesRef.current[i - 1] = img;
         setLoadedCount((n) => n + 1);
-        // Draw first frame immediately
         if (i === 1) drawFrame(0);
       };
       img.onerror = () => {
         if (cancelled) return;
         setLoadedCount((n) => n + 1);
       };
+    };
+
+    const loadChunk = (start: number) => {
+      if (cancelled) return;
+      const end = Math.min(start + CHUNK_SIZE - 1, TOTAL_FRAMES);
+      for (let i = start; i <= end; i++) loadFrame(i);
+    };
+
+    // Chunk 1: immediate
+    loadChunk(1);
+
+    // Remaining chunks via requestIdleCallback (fallback setTimeout)
+    type IdleWindow = typeof window & {
+      requestIdleCallback?: (cb: () => void) => number;
+      cancelIdleCallback?: (h: number) => void;
+    };
+    const w = window as IdleWindow;
+    const schedule = (fn: () => void) => {
+      if (typeof w.requestIdleCallback === "function") {
+        idleHandles.push(w.requestIdleCallback(fn));
+      } else {
+        timers.push(setTimeout(fn, 100));
+      }
+    };
+
+    for (let start = CHUNK_SIZE + 1; start <= TOTAL_FRAMES; start += CHUNK_SIZE) {
+      const s = start;
+      schedule(() => loadChunk(s));
     }
+
     return () => {
       cancelled = true;
+      timers.forEach(clearTimeout);
+      if (typeof w.cancelIdleCallback === "function") {
+        idleHandles.forEach((h) => w.cancelIdleCallback!(h));
+      }
     };
   }, [enabled]);
 
@@ -117,38 +207,16 @@ export function GlobalReveal() {
     };
   }, [enabled]);
 
-  function drawFrame(index: number) {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    // Find the closest loaded frame (backward fallback to prevent flicker)
-    let img: HTMLImageElement | null = null;
-    for (let i = index; i >= 0; i--) {
-      if (framesRef.current[i]) {
-        img = framesRef.current[i];
-        break;
-      }
-    }
-    if (!img) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const cw = rect.width;
-    const ch = rect.height;
-    ctx.clearRect(0, 0, cw, ch);
-
-    // object-fit: cover scaling
-    const scale = Math.max(cw / img.naturalWidth, ch / img.naturalHeight);
-    const dw = img.naturalWidth * scale;
-    const dh = img.naturalHeight * scale;
-    const dx = (cw - dw) / 2;
-    const dy = (ch - dh) / 2;
-    ctx.drawImage(img, dx, dy, dw, dh);
+  // Graceful fallback: if no frames exist after retries, render a static
+  // branded background instead of a black canvas.
+  if (missing) {
+    return (
+      <div
+        className="fixed inset-0 z-0 pointer-events-none bg-gradient-to-br from-accent/15 via-lavender/10 to-rose/15"
+        aria-hidden="true"
+      />
+    );
   }
-
-  // Graceful fallback: if no frames exist, render nothing
-  if (missing) return null;
 
   // Wait until ~15% of frames are loaded before showing
   const ready = loadedCount >= Math.max(8, Math.floor(TOTAL_FRAMES * 0.15));

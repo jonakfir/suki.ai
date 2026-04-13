@@ -13,7 +13,7 @@ export async function POST(request: Request) {
   if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
     const cookieStore = await cookies();
     cookieStore.set("admin-session", "true", {
-      httpOnly: false,
+      httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
@@ -24,4 +24,16 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+}
+
+export async function DELETE() {
+  const cookieStore = await cookies();
+  cookieStore.set("admin-session", "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
+  return NextResponse.json({ success: true });
 }

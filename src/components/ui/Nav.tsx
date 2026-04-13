@@ -27,7 +27,7 @@ export function Nav() {
         {isLanding || isAuth ? (
           <Link
             href="/auth"
-            className="flex items-center gap-2 text-sm text-muted hover:text-foreground transition-colors duration-300"
+            className="flex items-center gap-2 text-sm text-muted hover:text-foreground transition-colors duration-300 rounded-full px-2 py-1 -mx-2 -my-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             <User size={16} />
             <span className="font-[family-name:var(--font-script)]">Sign in</span>
@@ -39,7 +39,7 @@ export function Nav() {
                 key={href}
                 href={href}
                 aria-label={label}
-                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-sm transition-all duration-300 ${
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-sm transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                   pathname.startsWith(href)
                     ? "bg-accent/15 text-accent glow-accent"
                     : "text-muted hover:text-foreground hover:bg-card/50"

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { isAdminSession, ADMIN_USER_ID, ADMIN_NAME } from "@/lib/admin";
+import { isAdminSession, clearAdminSession, ADMIN_USER_ID, ADMIN_NAME } from "@/lib/admin";
 import { useStore, UserProduct, Recommendation, SkinProfile } from "@/lib/store";
 import { Card } from "@/components/ui/Card";
 import { GhostButton } from "@/components/ui/GhostButton";
@@ -24,54 +24,95 @@ export default function DashboardPage() {
   const { profile, setProfile, products, setProducts, recommendations, setRecommendations, resetUserData } = useStore();
   const [userName, setUserName] = useState("");
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
   const [recsLoading, setRecsLoading] = useState(false);
+  const [profileError, setProfileError] = useState(false);
+  const [productsError, setProductsError] = useState(false);
+  const [recsError, setRecsError] = useState(false);
   const supabase = createClient();
+
+  const loadProfile = async (uid: string) => {
+    setProfileError(false);
+    const res = await supabase.from("users_profile").select("*").eq("user_id", uid).single();
+    if (res.error && res.error.code !== "PGRST116") {
+      setProfileError(true);
+      return;
+    }
+    if (res.data) {
+      const p = res.data;
+      setProfile({
+        skin_type: p.skin_type,
+        skin_concerns: p.skin_concerns || [],
+        skin_tone: p.skin_tone,
+        age_range: p.age_range,
+        known_allergies: p.known_allergies || [],
+        budget: p.budget,
+        routine_complexity: p.routine_complexity,
+      });
+    }
+  };
+
+  const loadProducts = async (uid: string) => {
+    setProductsError(false);
+    const res = await supabase
+      .from("user_products")
+      .select("*")
+      .eq("user_id", uid)
+      .order("created_at", { ascending: false });
+    if (res.error) {
+      setProductsError(true);
+      return;
+    }
+    setProducts((res.data ?? []) as UserProduct[]);
+  };
+
+  const loadRecs = async (uid: string) => {
+    setRecsError(false);
+    const res = await supabase
+      .from("recommendations")
+      .select("*")
+      .eq("user_id", uid)
+      .eq("is_dismissed", false)
+      .order("created_at", { ascending: false });
+    if (res.error) {
+      setRecsError(true);
+      return;
+    }
+    setRecommendations((res.data ?? []) as Recommendation[]);
+  };
 
   useEffect(() => {
     async function load() {
       // Prefer a real Supabase user over a stale admin cookie
       const { data: { user: supaUser } } = await supabase.auth.getUser();
-      const admin = isAdminSession();
-      let userId: string | null = null;
+      const admin = await isAdminSession();
+      let uid: string | null = null;
 
       if (supaUser) {
         // A real user is signed in — clear any leftover admin cookie
-        document.cookie = "admin-session=; path=/; max-age=0";
-        userId = supaUser.id;
+        await clearAdminSession();
+        uid = supaUser.id;
         const fullName = supaUser.user_metadata?.full_name as string | undefined;
         const first = fullName?.trim().split(/\s+/)[0];
         setUserName(first || supaUser.email?.split("@")[0] || "there");
       } else if (admin) {
-        userId = ADMIN_USER_ID;
+        uid = ADMIN_USER_ID;
         setUserName(ADMIN_NAME);
       } else {
+        setLoading(false);
         return;
       }
+
+      setUserId(uid);
 
       // Clear any stale in-memory data from a previous session before loading
       resetUserData();
 
-      const [profileRes, productsRes, recsRes] = await Promise.all([
-        supabase.from("users_profile").select("*").eq("user_id", userId).single(),
-        supabase.from("user_products").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
-        supabase.from("recommendations").select("*").eq("user_id", userId).eq("is_dismissed", false).order("created_at", { ascending: false }),
+      await Promise.allSettled([
+        loadProfile(uid),
+        loadProducts(uid),
+        loadRecs(uid),
       ]);
-
-      if (profileRes.data) {
-        const p = profileRes.data;
-        setProfile({
-          skin_type: p.skin_type,
-          skin_concerns: p.skin_concerns || [],
-          skin_tone: p.skin_tone,
-          age_range: p.age_range,
-          known_allergies: p.known_allergies || [],
-          budget: p.budget,
-          routine_complexity: p.routine_complexity,
-        });
-      }
-
-      setProducts((productsRes.data ?? []) as UserProduct[]);
-      setRecommendations((recsRes.data ?? []) as Recommendation[]);
 
       setLoading(false);
     }
@@ -97,10 +138,14 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-muted">Loading your dashboard...</p>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+        <div className="h-8 w-64 rounded-md bg-card/70 animate-pulse mb-2" />
+        <div className="h-4 w-80 rounded-md bg-card/60 animate-pulse mb-6 sm:mb-8" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+          <div className="lg:col-span-2 h-36 rounded-2xl bg-card/70 animate-pulse" />
+          <div className="h-36 rounded-2xl bg-card/70 animate-pulse" />
+          <div className="lg:col-span-2 h-56 rounded-2xl bg-card/70 animate-pulse" />
+          <div className="h-56 rounded-2xl bg-card/70 animate-pulse" />
         </div>
       </div>
     );
@@ -109,7 +154,7 @@ export default function DashboardPage() {
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
       <FadeIn>
-        <h1 className="text-2xl sm:text-3xl font-light mb-1">
+        <h1 className="text-h1 font-light mb-1">
           Welcome back, {userName}.
         </h1>
         <p className="text-muted font-[family-name:var(--font-body)] text-sm mb-6 sm:mb-8">
@@ -122,25 +167,32 @@ export default function DashboardPage() {
         <FadeIn delay={0.1} className="lg:col-span-2">
           <Card>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-light">Your skin profile</h2>
+              <h2 className="text-h3 font-light">Your skin profile</h2>
               <Link href="/profile">
                 <GhostButton size="sm" variant="ghost">
                   Edit
                 </GhostButton>
               </Link>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {profile.skin_type && (
-                <Pill>{profile.skin_type}</Pill>
-              )}
-              {profile.skin_concerns.map((c) => (
-                <Pill key={c}>{c}</Pill>
-              ))}
-              {profile.budget && <Pill>{profile.budget}</Pill>}
-              {profile.routine_complexity && (
-                <Pill>{profile.routine_complexity} routine</Pill>
-              )}
-            </div>
+            {profileError ? (
+              <SectionError
+                label="profile"
+                onRetry={() => userId && loadProfile(userId)}
+              />
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {profile.skin_type && (
+                  <Pill>{profile.skin_type}</Pill>
+                )}
+                {profile.skin_concerns.map((c) => (
+                  <Pill key={c}>{c}</Pill>
+                ))}
+                {profile.budget && <Pill>{profile.budget}</Pill>}
+                {profile.routine_complexity && (
+                  <Pill>{profile.routine_complexity} routine</Pill>
+                )}
+              </div>
+            )}
           </Card>
         </FadeIn>
 
@@ -169,12 +221,17 @@ export default function DashboardPage() {
         <FadeIn delay={0.15} className="lg:col-span-2">
           <Card>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-light">Your routine</h2>
+              <h2 className="text-h3 font-light">Your routine</h2>
               <Link href="/products" className="text-accent text-sm hover:underline flex items-center gap-1">
                 View all <ArrowRight size={14} />
               </Link>
             </div>
-            {currentProducts.length === 0 ? (
+            {productsError ? (
+              <SectionError
+                label="routine"
+                onRetry={() => userId && loadProducts(userId)}
+              />
+            ) : currentProducts.length === 0 ? (
               <div className="text-center py-8">
                 <Package size={32} className="text-muted/40 mx-auto mb-3" />
                 <p className="text-sm text-muted font-[family-name:var(--font-body)]">
@@ -212,9 +269,14 @@ export default function DashboardPage() {
           <Card>
             <div className="flex items-center gap-2 mb-4">
               <Sparkles size={18} className="text-accent" />
-              <h2 className="text-lg font-light">suki. suggests</h2>
+              <h2 className="text-h3 font-light">suki. suggests</h2>
             </div>
-            {topRecs.length === 0 ? (
+            {recsError ? (
+              <SectionError
+                label="recommendations"
+                onRetry={() => userId && loadRecs(userId)}
+              />
+            ) : topRecs.length === 0 ? (
               <div className="text-center py-6">
                 <p className="text-sm text-muted font-[family-name:var(--font-body)] mb-3">
                   No recommendations yet. Hit refresh to generate!
@@ -254,6 +316,19 @@ export default function DashboardPage() {
           </Card>
         </FadeIn>
       </div>
+    </div>
+  );
+}
+
+function SectionError({ label, onRetry }: { label: string; onRetry: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-3 p-3 rounded-xl border border-red-200 bg-red-50">
+      <p className="text-sm text-red-600 font-[family-name:var(--font-body)]">
+        Couldn&apos;t load {label}.
+      </p>
+      <GhostButton size="sm" variant="outline" onClick={onRetry}>
+        Retry
+      </GhostButton>
     </div>
   );
 }

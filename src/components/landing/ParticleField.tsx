@@ -2,7 +2,15 @@
 
 import { useEffect, useRef } from "react";
 
-const PARTICLE_COUNT = 80;
+const DEFAULT_PARTICLE_COUNT = 80;
+
+function getParticleCount(): number {
+  if (typeof window === "undefined") return DEFAULT_PARTICLE_COUNT;
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return 0;
+  const cores = navigator.hardwareConcurrency ?? 8;
+  if (cores <= 4) return 50;
+  return DEFAULT_PARTICLE_COUNT;
+}
 
 interface Particle {
   x: number;
@@ -48,7 +56,8 @@ export function ParticleField() {
     window.addEventListener("resize", resize);
 
     // Create particles
-    const particles: Particle[] = Array.from({ length: PARTICLE_COUNT }, () => ({
+    const particleCount = getParticleCount();
+    const particles: Particle[] = Array.from({ length: particleCount }, () => ({
       x: Math.random() * w,
       y: Math.random() * h,
       vx: (Math.random() - 0.5) * 0.3,
@@ -59,14 +68,21 @@ export function ParticleField() {
     }));
 
     let animId: number;
+    let lastT = performance.now();
 
-    const draw = () => {
+    const draw = (t: number) => {
       animId = requestAnimationFrame(draw);
+      // Clamp delta to avoid huge jumps after tab unfocus
+      const rawDelta = t - lastT;
+      const delta = Math.min(rawDelta, 33);
+      lastT = t;
+      const step = delta / 16.6667; // normalized to ~60fps units
+
       ctx.clearRect(0, 0, w, h);
 
       for (const p of particles) {
-        p.x += p.vx;
-        p.y += p.vy;
+        p.x += p.vx * step;
+        p.y += p.vy * step;
 
         if (p.x < -10) p.x = w + 10;
         if (p.x > w + 10) p.x = -10;
@@ -79,10 +95,10 @@ export function ParticleField() {
         ctx.fill();
       }
     };
-    draw();
+    if (particleCount > 0) animId = requestAnimationFrame(draw);
 
     return () => {
-      cancelAnimationFrame(animId);
+      if (animId) cancelAnimationFrame(animId);
       window.removeEventListener("resize", resize);
     };
   }, []);

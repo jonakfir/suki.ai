@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useStore } from "@/lib/store";
+import { clearAdminSession } from "@/lib/admin";
 import { useRouter } from "next/navigation";
 import { Logo } from "@/components/ui/Logo";
 import { FormInput } from "@/components/ui/FormInput";
@@ -21,8 +22,8 @@ export default function AuthPage() {
   const supabase = createClient();
   const resetUserData = useStore((s) => s.resetUserData);
 
-  const clearAdminCookie = () => {
-    document.cookie = "admin-session=; path=/; max-age=0";
+  const clearAdminCookie = async () => {
+    await clearAdminSession();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -44,7 +45,7 @@ export default function AuthPage() {
         return;
       }
 
-      clearAdminCookie();
+      await clearAdminCookie();
       resetUserData();
 
       if (isSignUp) {
@@ -71,7 +72,7 @@ export default function AuthPage() {
   };
 
   const handleGoogleAuth = async () => {
-    clearAdminCookie();
+    await clearAdminCookie();
     resetUserData();
     await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -164,7 +165,7 @@ export default function AuthPage() {
               setIsSignUp(!isSignUp);
               setError("");
             }}
-            className="text-accent hover:underline"
+            className="text-accent hover:underline rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             {isSignUp ? "Sign in" : "Create account"}
           </button>

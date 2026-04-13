@@ -62,9 +62,11 @@ export default function RecommendationsPage() {
   const [planSwapKey, setPlanSwapKey] = useState<string | null>(null);
 
   useEffect(() => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60_000);
     async function load() {
       try {
-        const res = await fetch("/api/recommendations");
+        const res = await fetch("/api/recommendations", { signal: controller.signal });
         if (!res.ok) {
           if (res.status === 401) {
             window.location.href = "/auth";
@@ -75,29 +77,50 @@ export default function RecommendationsPage() {
         const body = await res.json();
         setRecommendations((body.recommendations ?? []) as Recommendation[]);
       } catch (err) {
+        if ((err as { name?: string })?.name === "AbortError") return;
         console.error("Failed to load recommendations:", err);
       } finally {
+        clearTimeout(timeoutId);
         setLoading(false);
       }
     }
     load();
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const regenerate = async () => {
     setGenerating(true);
     setError("");
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60_000);
     try {
-      const res = await fetch("/api/recommendations", { method: "POST" });
-      const data = await res.json();
+      const res = await fetch("/api/recommendations", {
+        method: "POST",
+        signal: controller.signal,
+      });
+      let data: { recommendations?: Recommendation[]; error?: string; detail?: string } = {};
+      try {
+        data = await res.json();
+      } catch {
+        // ignore parse errors
+      }
       if (!res.ok) {
-        setError(data.error || data.detail || "Failed to generate");
+        setError(data.error || data.detail || `Failed to generate (${res.status})`);
         return;
       }
       if (data.recommendations) setRecommendations(data.recommendations);
     } catch (err) {
-      setError("Failed to connect to the server");
+      if ((err as Error)?.name === "AbortError") {
+        setError("Recommendations took too long. Please retry.");
+      } else {
+        setError("Failed to connect to the server");
+      }
       console.error(err);
     } finally {
+      clearTimeout(timeoutId);
       setGenerating(false);
     }
   };

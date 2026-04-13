@@ -22,13 +22,13 @@ export function Hero() {
 
         {/* Main heading */}
         <h1 className="mb-2 animate-[fadeInUp_0.8s_ease-out_0.3s_both]">
-          <span className="inline-flex flex-wrap justify-center gap-x-[0.3em] font-[family-name:var(--font-script)] text-[2.75rem] sm:text-6xl md:text-7xl lg:text-8xl font-bold leading-[1.05] gradient-text">
+          <span className="inline-flex flex-wrap justify-center gap-x-[0.3em] font-[family-name:var(--font-script)] text-display sm:text-display-xl font-bold gradient-text">
             Skincare that
           </span>
         </h1>
 
         <h1 className="mb-6 animate-[fadeInUp_0.8s_ease-out_0.5s_both]">
-          <span className="inline-flex flex-wrap justify-center gap-x-[0.3em] font-[family-name:var(--font-script)] text-[2.75rem] sm:text-6xl md:text-7xl lg:text-8xl font-bold text-foreground leading-[1.05]">
+          <span className="inline-flex flex-wrap justify-center gap-x-[0.3em] font-[family-name:var(--font-script)] text-display sm:text-display-xl font-bold text-foreground">
             knows your skin.
           </span>
         </h1>
@@ -46,7 +46,7 @@ export function Hero() {
 
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-stretch sm:items-center px-4 sm:px-0 animate-[fadeInUp_0.6s_ease-out_1s_both]">
           <Link href="/onboard" className="w-full sm:w-auto">
-            <GhostButton as="span" variant="filled" size="lg" className="group w-full sm:w-auto">
+            <GhostButton as="span" variant="filled" size="lg" className="group w-full sm:w-auto whitespace-nowrap">
               <Sparkles
                 size={16}
                 className="transition-transform duration-500 group-hover:rotate-180"
@@ -55,7 +55,7 @@ export function Hero() {
             </GhostButton>
           </Link>
           <Link href="/auth" className="w-full sm:w-auto">
-            <GhostButton as="span" variant="outline" size="lg" className="w-full sm:w-auto">
+            <GhostButton as="span" variant="outline" size="lg" className="w-full sm:w-auto whitespace-nowrap">
               Sign in
             </GhostButton>
           </Link>
@@ -69,6 +69,7 @@ export function Hero() {
               className="w-2 h-2 rounded-full bg-accent/30"
               style={{
                 animation: `float-gentle ${2.5 + i * 0.3}s ${i * 0.2}s infinite ease-in-out`,
+                willChange: "transform",
               }}
             />
           ))}

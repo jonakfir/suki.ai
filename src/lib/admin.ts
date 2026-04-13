@@ -6,7 +6,23 @@ export const ADMIN_USER_ID =
   "00000000-0000-0000-0000-000000000000";
 export const ADMIN_NAME = process.env.NEXT_PUBLIC_ADMIN_NAME || "there";
 
-export function isAdminSession(): boolean {
-  if (typeof document === "undefined") return false;
-  return document.cookie.includes("admin-session=true");
+export async function isAdminSession(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  try {
+    const res = await fetch("/api/auth/admin/status", { cache: "no-store" });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return !!data.isAdmin;
+  } catch {
+    return false;
+  }
+}
+
+export async function clearAdminSession(): Promise<void> {
+  if (typeof window === "undefined") return;
+  try {
+    await fetch("/api/auth/admin", { method: "DELETE" });
+  } catch {
+    // ignore
+  }
 }

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ADMIN_USER_ID } from "@/lib/admin";
 import { callClaude, isClaudeConfigured } from "@/lib/claude-client";
+import type { ProductSuggestion } from "@/lib/store";
 
 type Sup = Awaited<ReturnType<typeof createClient>> | ReturnType<typeof createAdminClient>;
 
@@ -198,10 +199,18 @@ Return exactly 5 items in "add" and 5 items in "avoid".`;
       .delete()
       .eq("user_id", userId);
 
-    const enrich = (item: Record<string, unknown>) => {
+    const enrich = (item: Record<string, unknown>): ProductSuggestion => {
       const name = typeof item.name === "string" ? item.name : "";
       const brand = typeof item.brand === "string" ? item.brand : "";
       const category = typeof item.category === "string" ? item.category : "";
+      const reason = typeof item.reason === "string" ? item.reason : "";
+      const price_range = typeof item.price_range === "string" ? item.price_range : undefined;
+      const where_to_buy = typeof item.where_to_buy === "string" ? item.where_to_buy : undefined;
+      const key_ingredients = Array.isArray(item.key_ingredients)
+        ? item.key_ingredients.filter((v): v is string => typeof v === "string")
+        : undefined;
+      const budget_tier = typeof item.budget_tier === "string" ? item.budget_tier : undefined;
+      const complexity_impact = typeof item.complexity_impact === "string" ? item.complexity_impact : undefined;
       const q = `${brand} ${name}`.trim();
       const buy_url = q
         ? `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(q)}`
@@ -209,7 +218,19 @@ Return exactly 5 items in "add" and 5 items in "avoid".`;
       const tags = ["skincare", category, "beauty"].filter(Boolean).join(",");
       const seed = encodeURIComponent(`${brand}-${name}`.toLowerCase().replace(/[^a-z0-9-]+/g, "-"));
       const image_url = `https://loremflickr.com/400/500/${encodeURIComponent(tags)}?lock=${seed.length}`;
-      return { ...item, buy_url, image_url };
+      return {
+        name,
+        brand,
+        category,
+        reason,
+        price_range,
+        where_to_buy,
+        key_ingredients,
+        budget_tier,
+        complexity_impact,
+        buy_url,
+        image_url,
+      };
     };
 
     const now = new Date().toISOString();

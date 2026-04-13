@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useSyncExternalStore } from "react";
 import { motion } from "framer-motion";
 
 interface Bubble {
@@ -12,24 +12,41 @@ interface Bubble {
   opacity: number;
 }
 
+// Bubble positions are random but only need to be generated once for the
+// app's lifetime. Computing them lazily at module scope keeps the
+// randomness out of render (purity-safe) and makes the set stable across
+// re-renders.
+let cachedBubbles: Bubble[] | null = null;
+function getBubbles(): Bubble[] {
+  if (cachedBubbles) return cachedBubbles;
+  cachedBubbles = Array.from({ length: 18 }, (_, i) => ({
+    id: i,
+    size: 6 + Math.random() * 20,
+    left: Math.random() * 100,
+    delay: Math.random() * 15,
+    duration: 12 + Math.random() * 18,
+    opacity: 0.08 + Math.random() * 0.15,
+  }));
+  return cachedBubbles;
+}
+
+// External-store signal: true only after hydration. Using this to gate
+// rendering avoids both hydration mismatches (server sees no bubbles) and
+// the set-state-in-effect anti-pattern.
+const subscribeClient = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
+
 // Floating skincare bubbles that rise up the page
 export function FloatingBubbles() {
-  const [bubbles, setBubbles] = useState<Bubble[]>([]);
+  const isClient = useSyncExternalStore(
+    subscribeClient,
+    getClientSnapshot,
+    getServerSnapshot
+  );
 
-  useEffect(() => {
-    setBubbles(
-      Array.from({ length: 18 }, (_, i) => ({
-        id: i,
-        size: 6 + Math.random() * 20,
-        left: Math.random() * 100,
-        delay: Math.random() * 15,
-        duration: 12 + Math.random() * 18,
-        opacity: 0.08 + Math.random() * 0.15,
-      }))
-    );
-  }, []);
-
-  if (bubbles.length === 0) return null;
+  if (!isClient) return null;
+  const bubbles = getBubbles();
 
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">

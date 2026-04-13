@@ -18,7 +18,7 @@ export function GhostButton({
   ...props
 }: GhostButtonProps) {
   const base =
-    "inline-flex items-center justify-center gap-2 rounded-full font-[family-name:var(--font-body)] font-medium transition-all duration-300 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed";
+    "inline-flex items-center justify-center gap-2 rounded-full font-[family-name:var(--font-body)] font-medium transition-all duration-300 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-40 disabled:saturate-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none disabled:hover:bg-transparent disabled:hover:border-accent/50";
 
   const sizes = {
     sm: "text-sm px-4 py-1.5",

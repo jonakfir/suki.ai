@@ -8,6 +8,7 @@ import { isAdminSession, ADMIN_USER_ID } from "@/lib/admin";
 import { useStore } from "@/lib/store";
 import { GhostButton } from "@/components/ui/GhostButton";
 import { Logo } from "@/components/ui/Logo";
+import { SelectionButton } from "@/components/onboard/SelectionButton";
 import {
   SkinType,
   SkinTone,
@@ -128,7 +129,7 @@ export default function OnboardPage() {
     setSaving(true);
     setSaveError("");
     try {
-      const admin = isAdminSession();
+      const admin = await isAdminSession();
 
       const profilePayload = {
         skin_type: profile.skin_type,
@@ -211,7 +212,7 @@ export default function OnboardPage() {
             {/* Step 1: Skin Type */}
             {step === 1 && (
               <div>
-                <h2 className="text-xl sm:text-2xl font-light text-center mb-2 px-2">
+                <h2 className="text-h2 font-light text-center mb-2 px-2">
                   What&apos;s your skin type?
                 </h2>
                 <p className="text-sm text-muted text-center mb-8 font-[family-name:var(--font-body)]">
@@ -246,7 +247,7 @@ export default function OnboardPage() {
             {/* Step 2: Concerns */}
             {step === 2 && (
               <div>
-                <h2 className="text-xl sm:text-2xl font-light text-center mb-2 px-2">
+                <h2 className="text-h2 font-light text-center mb-2 px-2">
                   What are your skin concerns?
                 </h2>
                 <p className="text-sm text-muted text-center mb-8 font-[family-name:var(--font-body)]">
@@ -274,7 +275,7 @@ export default function OnboardPage() {
             {step === 3 && (
               <div className="space-y-10">
                 <div>
-                  <h2 className="text-xl sm:text-2xl font-light text-center mb-2 px-2">
+                  <h2 className="text-h2 font-light text-center mb-2 px-2">
                     <Palette size={20} className="inline mr-2 text-accent" />
                     Skin tone
                   </h2>
@@ -283,38 +284,30 @@ export default function OnboardPage() {
                   </p>
                   <div className="flex flex-wrap gap-2 justify-center">
                     {tones.map((t) => (
-                      <button
+                      <SelectionButton
                         key={t.value}
-                        onClick={() => setProfile({ skin_tone: t.value })}
-                        className={`px-5 py-2.5 rounded-full text-sm transition-all cursor-pointer ${
-                          profile.skin_tone === t.value
-                            ? "bg-accent/15 text-accent border border-accent/30"
-                            : "bg-card text-muted border border-card-border hover:border-accent/30"
-                        }`}
-                      >
-                        {t.label}
-                      </button>
+                        value={t.value}
+                        label={t.label}
+                        selected={profile.skin_tone === t.value}
+                        onSelect={(v) => setProfile({ skin_tone: v })}
+                      />
                     ))}
                   </div>
                 </div>
                 <div>
-                  <h2 className="text-xl sm:text-2xl font-light text-center mb-2 px-2">
+                  <h2 className="text-h2 font-light text-center mb-2 px-2">
                     <Calendar size={20} className="inline mr-2 text-accent" />
                     Age range
                   </h2>
                   <div className="flex flex-wrap gap-2 justify-center">
                     {ageRanges.map((a) => (
-                      <button
+                      <SelectionButton
                         key={a.value}
-                        onClick={() => setProfile({ age_range: a.value })}
-                        className={`px-5 py-2.5 rounded-full text-sm transition-all cursor-pointer ${
-                          profile.age_range === a.value
-                            ? "bg-accent/15 text-accent border border-accent/30"
-                            : "bg-card text-muted border border-card-border hover:border-accent/30"
-                        }`}
-                      >
-                        {a.label}
-                      </button>
+                        value={a.value}
+                        label={a.label}
+                        selected={profile.age_range === a.value}
+                        onSelect={(v) => setProfile({ age_range: v })}
+                      />
                     ))}
                   </div>
                 </div>
@@ -324,7 +317,7 @@ export default function OnboardPage() {
             {/* Step 4: Allergies */}
             {step === 4 && (
               <div>
-                <h2 className="text-xl sm:text-2xl font-light text-center mb-2 px-2">
+                <h2 className="text-h2 font-light text-center mb-2 px-2">
                   Any known allergies or sensitivities?
                 </h2>
                 <p className="text-sm text-muted text-center mb-8 font-[family-name:var(--font-body)]">
@@ -385,7 +378,7 @@ export default function OnboardPage() {
             {step === 5 && (
               <div className="space-y-10">
                 <div>
-                  <h2 className="text-xl sm:text-2xl font-light text-center mb-2 px-2">
+                  <h2 className="text-h2 font-light text-center mb-2 px-2">
                     <Wallet size={20} className="inline mr-2 text-accent" />
                     Budget preference
                   </h2>
@@ -409,7 +402,7 @@ export default function OnboardPage() {
                   </div>
                 </div>
                 <div>
-                  <h2 className="text-xl sm:text-2xl font-light text-center mb-2 px-2">
+                  <h2 className="text-h2 font-light text-center mb-2 px-2">
                     <Clock size={20} className="inline mr-2 text-accent" />
                     How complex do you want your routine?
                   </h2>
@@ -439,7 +432,7 @@ export default function OnboardPage() {
             {step === 6 && (
               <div className="text-center">
                 <Sparkles size={32} className="text-accent mx-auto mb-4" />
-                <h2 className="text-xl sm:text-2xl font-light mb-2 px-2">
+                <h2 className="text-h2 font-light mb-2 px-2">
                   You&apos;re all set!
                 </h2>
                 <p className="text-sm text-muted mb-8 font-[family-name:var(--font-body)] max-w-sm mx-auto">

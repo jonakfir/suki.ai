@@ -37,7 +37,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.2 }}
-            className="relative z-10 w-full max-w-lg bg-background border border-border rounded-2xl shadow-[0_20px_60px_rgba(126,184,232,0.15)] max-h-[92vh] sm:max-h-[85vh] overflow-y-auto"
+            className="relative z-10 w-full max-w-lg bg-background border border-border rounded-2xl shadow-[0_20px_60px_rgba(126,184,232,0.15)] max-h-[88vh] sm:max-h-[85vh] overflow-y-auto"
           >
             {title && (
               <div className="flex items-center justify-between p-4 sm:p-6 pb-0">
