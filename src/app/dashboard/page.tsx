@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/Card";
 import { GhostButton } from "@/components/ui/GhostButton";
 import { Pill } from "@/components/ui/Pill";
 import { FadeIn } from "@/components/ui/FadeIn";
+import { PageHero } from "@/components/ui/PageHero";
 import Link from "next/link";
 import {
   Sparkles,
@@ -152,17 +153,14 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
-      <FadeIn>
-        <h1 className="text-h1 font-light mb-1 text-accent-ink">
-          Welcome back, {userName}.
-        </h1>
-        <p className="text-muted font-[family-name:var(--font-body)] text-sm mb-6 sm:mb-8">
-          Here&apos;s what suki. recommends today.
-        </p>
-      </FadeIn>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+    <div>
+      <PageHero
+        eyebrow="Your space"
+        title={<>Welcome back,</>}
+        titleAccent={`${userName}.`}
+        subtitle="Here's what suki. recommends today — tuned to your skin, updated as you log."
+      />
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Skin Profile Summary */}
         <FadeIn delay={0.1} className="lg:col-span-2">
           <Card>

@@ -5,6 +5,7 @@ import { useStore, Recommendation, Budget } from "@/lib/store";
 import { GhostButton } from "@/components/ui/GhostButton";
 import { Pill } from "@/components/ui/Pill";
 import { FadeIn, StaggerChildren, StaggerItem } from "@/components/ui/FadeIn";
+import { PageHero } from "@/components/ui/PageHero";
 import {
   Sparkles,
   ShieldAlert,
@@ -279,22 +280,16 @@ export default function RecommendationsPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
-      {/* Header */}
-      <FadeIn>
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-6 sm:mb-8 gap-3 sm:gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-light">
-              Your{" "}
-              <span className="font-[family-name:var(--font-script)] gradient-text">
-                suki.
-              </span>
-            </h1>
-            <p className="text-sm text-muted font-[family-name:var(--font-body)]">
-              Personalised picks + a routine plan built around your skin.
-            </p>
+    <div>
+      <PageHero
+        eyebrow="Made for you"
+        title={<>Your</>}
+        titleAccent="suki."
+        subtitle={
+          <>
+            Personalised picks + a routine plan built around your skin.
             {lastGenerated && view === "products" && (
-              <p className="text-xs text-muted/60 mt-1 flex items-center gap-1 font-[family-name:var(--font-body)]">
+              <span className="block text-xs text-muted/60 mt-1 flex items-center gap-1">
                 <Clock size={12} />
                 Last updated{" "}
                 {new Date(lastGenerated).toLocaleDateString()} at{" "}
@@ -302,14 +297,15 @@ export default function RecommendationsPage() {
                   hour: "2-digit",
                   minute: "2-digit",
                 })}
-              </p>
+              </span>
             )}
-          </div>
+          </>
+        }
+        actions={
           <GhostButton
             variant="outline"
             onClick={view === "plan" ? generatePlan : regenerate}
             disabled={generating || planLoading}
-            className="w-full sm:w-auto"
           >
             <RefreshCw
               size={16}
@@ -325,8 +321,9 @@ export default function RecommendationsPage() {
                 ? "Generating..."
                 : "Regenerate"}
           </GhostButton>
-        </div>
-      </FadeIn>
+        }
+      />
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
 
       {/* View switcher: Products / Plan */}
       <FadeIn delay={0.05}>
@@ -391,6 +388,7 @@ export default function RecommendationsPage() {
           swappingKey={planSwapKey}
         />
       )}
+      </div>
     </div>
   );
 }

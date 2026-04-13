@@ -15,6 +15,7 @@ import {
 import { Card } from "@/components/ui/Card";
 import { GhostButton } from "@/components/ui/GhostButton";
 import { FadeIn } from "@/components/ui/FadeIn";
+import { PageHero } from "@/components/ui/PageHero";
 import { Save, RefreshCw, LogOut, Heart, Package, ListChecks } from "lucide-react";
 import Link from "next/link";
 import { UserProduct } from "@/lib/store";
@@ -189,13 +190,14 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
-      <FadeIn>
-        <h1 className="text-2xl sm:text-3xl font-light mb-1">Profile settings</h1>
-        <p className="text-sm text-muted font-[family-name:var(--font-body)] mb-6 sm:mb-8">
-          Update your skin profile. Changes may affect your recommendations.
-        </p>
-      </FadeIn>
+    <div>
+      <PageHero
+        eyebrow="About your skin"
+        title={<>Profile</>}
+        titleAccent="settings."
+        subtitle="Update your skin profile. Changes may affect your recommendations."
+      />
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
 
       <div className="space-y-4 sm:space-y-6">
         {/* Skin Type */}
@@ -495,6 +497,7 @@ export default function ProfilePage() {
             </div>
           </div>
         </FadeIn>
+      </div>
       </div>
     </div>
   );

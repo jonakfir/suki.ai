@@ -8,6 +8,7 @@ import { Pill } from "@/components/ui/Pill";
 import { Modal } from "@/components/ui/Modal";
 import { FormInput, FormTextarea } from "@/components/ui/FormInput";
 import { FadeIn } from "@/components/ui/FadeIn";
+import { PageHero } from "@/components/ui/PageHero";
 import {
   Plus,
   Search,
@@ -270,21 +271,20 @@ export default function ProductsPage() {
   });
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
-      <FadeIn>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-6 sm:mb-8">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-light">Product log</h1>
-            <p className="text-sm text-muted font-[family-name:var(--font-body)]">
-              Everything that&apos;s touched your skin.
-            </p>
-          </div>
-          <GhostButton variant="filled" onClick={openAdd} className="w-full sm:w-auto">
+    <div>
+      <PageHero
+        eyebrow="Your library"
+        title={<>Product</>}
+        titleAccent="log."
+        subtitle="Everything that's touched your skin — saved, tried, and everything in between."
+        actions={
+          <GhostButton variant="filled" onClick={openAdd}>
             <Plus size={16} />
             Add product
           </GhostButton>
-        </div>
-      </FadeIn>
+        }
+      />
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
 
       {/* Saved / All tabs */}
       <FadeIn delay={0.08}>
@@ -541,6 +541,7 @@ export default function ProductsPage() {
           </GhostButton>
         </div>
       </Modal>
+      </div>
     </div>
   );
 }

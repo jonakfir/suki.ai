@@ -66,7 +66,7 @@ const iconColorMap = {
 
 export function Features() {
   return (
-    <section className="relative py-16 sm:py-28 px-4 sm:px-6 overflow-hidden bg-background/50 backdrop-blur-[2px]">
+    <section className="relative py-16 sm:py-28 px-4 sm:px-6 overflow-hidden bg-background/30 backdrop-blur-[2px]">
       <AmbientOrbs variant="rose" />
 
       <div className="relative z-10 max-w-5xl mx-auto">

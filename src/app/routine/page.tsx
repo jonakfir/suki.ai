@@ -5,6 +5,7 @@ import { Sun, Moon, Sparkles, ArrowUp, ArrowDown, Trash2, Plus, X } from "lucide
 import { Card } from "@/components/ui/Card";
 import { GhostButton } from "@/components/ui/GhostButton";
 import { FadeIn } from "@/components/ui/FadeIn";
+import { PageHero } from "@/components/ui/PageHero";
 import { UserProduct } from "@/lib/store";
 
 type TimeOfDay = "morning" | "evening" | "weekly";
@@ -143,13 +144,14 @@ export default function RoutinePage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
-      <FadeIn>
-        <h1 className="text-2xl sm:text-3xl font-light mb-1 text-accent-ink">My routine</h1>
-        <p className="text-sm text-muted font-[family-name:var(--font-body)] mb-6 sm:mb-8">
-          Build your AM, PM, and weekly ritual.
-        </p>
-      </FadeIn>
+    <div>
+      <PageHero
+        eyebrow="Daily ritual"
+        title={<>My</>}
+        titleAccent="routine."
+        subtitle="Build your AM, PM, and weekly ritual — in the order that works for your skin."
+      />
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
 
       {error && (
         <div className="mb-4 rounded-xl border border-red-200 bg-red-50 text-red-600 px-3 py-2 text-sm flex items-center justify-between">
@@ -266,6 +268,7 @@ export default function RoutinePage() {
             </Card>
           </FadeIn>
         ))}
+      </div>
       </div>
     </div>
   );
