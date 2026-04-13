@@ -60,6 +60,8 @@ export default function RecommendationsPage() {
   const [planLoading, setPlanLoading] = useState(false);
   const [planError, setPlanError] = useState("");
   const [planSwapKey, setPlanSwapKey] = useState<string | null>(null);
+  const [savedRecIds, setSavedRecIds] = useState<Set<string>>(new Set());
+  const [savingRecId, setSavingRecId] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -122,6 +124,43 @@ export default function RecommendationsPage() {
     } finally {
       clearTimeout(timeoutId);
       setGenerating(false);
+    }
+  };
+
+  const handleSave = async (rec: Recommendation) => {
+    if (savedRecIds.has(rec.id) || savingRecId === rec.id) return;
+    setSavingRecId(rec.id);
+    setSavedRecIds((prev) => new Set(prev).add(rec.id));
+    try {
+      const s = rec.product_suggestion;
+      const res = await fetch("/api/products/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          suggestion: {
+            product_name: s.name,
+            brand: s.brand,
+            category: s.category,
+            ingredients: s.key_ingredients || [],
+          },
+        }),
+      });
+      if (!res.ok) {
+        setSavedRecIds((prev) => {
+          const next = new Set(prev);
+          next.delete(rec.id);
+          return next;
+        });
+      }
+    } catch (err) {
+      console.error("Save failed:", err);
+      setSavedRecIds((prev) => {
+        const next = new Set(prev);
+        next.delete(rec.id);
+        return next;
+      });
+    } finally {
+      setSavingRecId(null);
     }
   };
 
@@ -338,6 +377,9 @@ export default function RecommendationsPage() {
           onDismiss={handleDismiss}
           onRegenerate={regenerate}
           generating={generating}
+          onSave={handleSave}
+          savedRecIds={savedRecIds}
+          savingRecId={savingRecId}
         />
       ) : (
         <PlanView
@@ -365,6 +407,9 @@ function ProductsView({
   onDismiss,
   onRegenerate,
   generating,
+  onSave,
+  savedRecIds,
+  savingRecId,
 }: {
   recommendations: Recommendation[];
   filtered: Recommendation[];
@@ -377,6 +422,9 @@ function ProductsView({
   onDismiss: (id: string) => void;
   onRegenerate: () => void;
   generating: boolean;
+  onSave: (rec: Recommendation) => void;
+  savedRecIds: Set<string>;
+  savingRecId: string | null;
 }) {
   return (
     <>
@@ -461,6 +509,9 @@ function ProductsView({
                 onSwap={onSwap}
                 onDismiss={onDismiss}
                 swapping={swappingId === rec.id}
+                onSave={onSave}
+                saved={savedRecIds.has(rec.id)}
+                saving={savingRecId === rec.id}
               />
             </StaggerItem>
           ))}
@@ -475,11 +526,17 @@ function RecCard({
   onSwap,
   onDismiss,
   swapping,
+  onSave,
+  saved,
+  saving,
 }: {
   rec: Recommendation;
   onSwap: (id: string) => void;
   onDismiss: (id: string) => void;
   swapping: boolean;
+  onSave: (rec: Recommendation) => void;
+  saved: boolean;
+  saving: boolean;
 }) {
   const s = rec.product_suggestion;
   const isAvoid = rec.type === "avoid";
@@ -494,13 +551,29 @@ function RecCard({
 
   return (
     <div className="group relative flex flex-col h-full overflow-hidden rounded-2xl glass border border-card-border/60 transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_20px_60px_rgba(126,184,232,0.15)]">
-      <button
-        onClick={() => onDismiss(rec.id)}
-        className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-background/80 backdrop-blur-sm border border-border/60 text-muted hover:text-foreground hover:bg-background transition-colors flex items-center justify-center"
-        aria-label="Dismiss"
-      >
-        <X size={14} />
-      </button>
+      <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
+        {!isAvoid && (
+          <button
+            onClick={() => onSave(rec)}
+            disabled={saving || saved}
+            className={`w-8 h-8 rounded-full backdrop-blur-sm border transition-colors flex items-center justify-center ${
+              saved
+                ? "bg-accent/15 border-accent/40 text-accent"
+                : "bg-background/80 border-border/60 text-muted hover:text-accent hover:bg-background"
+            }`}
+            aria-label={saved ? "Saved to shelf" : "Save to shelf"}
+          >
+            <Heart size={14} className={saved ? "fill-accent" : ""} />
+          </button>
+        )}
+        <button
+          onClick={() => onDismiss(rec.id)}
+          className="w-8 h-8 rounded-full bg-background/80 backdrop-blur-sm border border-border/60 text-muted hover:text-foreground hover:bg-background transition-colors flex items-center justify-center"
+          aria-label="Dismiss"
+        >
+          <X size={14} />
+        </button>
+      </div>
 
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-gradient-to-br from-accent/10 via-lavender/10 to-rose/10">
         {/* eslint-disable-next-line @next/next/no-img-element */}

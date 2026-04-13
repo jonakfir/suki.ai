@@ -154,7 +154,7 @@ export default function DashboardPage() {
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
       <FadeIn>
-        <h1 className="text-h1 font-light mb-1">
+        <h1 className="text-h1 font-light mb-1 text-accent-ink">
           Welcome back, {userName}.
         </h1>
         <p className="text-muted font-[family-name:var(--font-body)] text-sm mb-6 sm:mb-8">
@@ -167,7 +167,7 @@ export default function DashboardPage() {
         <FadeIn delay={0.1} className="lg:col-span-2">
           <Card>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-h3 font-light">Your skin profile</h2>
+              <h2 className="text-h3 font-light text-accent-deep">Your skin profile</h2>
               <Link href="/profile">
                 <GhostButton size="sm" variant="ghost">
                   Edit
@@ -221,7 +221,7 @@ export default function DashboardPage() {
         <FadeIn delay={0.15} className="lg:col-span-2">
           <Card>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-h3 font-light">Your routine</h2>
+              <h2 className="text-h3 font-light text-accent-deep">Your routine</h2>
               <Link href="/products" className="text-accent text-sm hover:underline flex items-center gap-1">
                 View all <ArrowRight size={14} />
               </Link>
@@ -269,7 +269,7 @@ export default function DashboardPage() {
           <Card>
             <div className="flex items-center gap-2 mb-4">
               <Sparkles size={18} className="text-accent" />
-              <h2 className="text-h3 font-light">suki. suggests</h2>
+              <h2 className="text-h3 font-light text-accent-deep">suki. suggests</h2>
             </div>
             {recsError ? (
               <SectionError

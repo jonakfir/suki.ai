@@ -66,6 +66,8 @@ export default function ProductsPage() {
   const [search, setSearch] = useState("");
   const [filterCat, setFilterCat] = useState<ProductCategory | "all">("all");
   const [filterRating, setFilterRating] = useState<ProductRating | "all">("all");
+  const [filterSaved, setFilterSaved] = useState(false);
+  const [togglingSaveId, setTogglingSaveId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ProductForm>(emptyForm);
@@ -76,6 +78,13 @@ export default function ProductsPage() {
   const [lookupResults, setLookupResults] = useState<CatalogHit[]>([]);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("filter") === "saved") setFilterSaved(true);
+    }
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -209,6 +218,34 @@ export default function ProductsPage() {
     }
   };
 
+  const handleToggleSave = async (p: UserProduct) => {
+    if (togglingSaveId === p.id) return;
+    const next = !p.is_saved;
+    setTogglingSaveId(p.id);
+    updateProduct(p.id, { is_saved: next });
+    try {
+      const res = next
+        ? await fetch("/api/products/save", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ productId: p.id }),
+          })
+        : await fetch("/api/products/save", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ productId: p.id }),
+          });
+      if (!res.ok) {
+        updateProduct(p.id, { is_saved: !next });
+      }
+    } catch (err) {
+      console.error("Toggle save failed:", err);
+      updateProduct(p.id, { is_saved: !next });
+    } finally {
+      setTogglingSaveId(null);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     try {
       const res = await fetch(`/api/products?id=${encodeURIComponent(id)}`, {
@@ -228,7 +265,8 @@ export default function ProductsPage() {
       p.brand.toLowerCase().includes(search.toLowerCase());
     const matchesCat = filterCat === "all" || p.category === filterCat;
     const matchesRating = filterRating === "all" || p.rating === filterRating;
-    return matchesSearch && matchesCat && matchesRating;
+    const matchesSaved = !filterSaved || p.is_saved === true;
+    return matchesSearch && matchesCat && matchesRating && matchesSaved;
   });
 
   return (
@@ -245,6 +283,33 @@ export default function ProductsPage() {
             <Plus size={16} />
             Add product
           </GhostButton>
+        </div>
+      </FadeIn>
+
+      {/* Saved / All tabs */}
+      <FadeIn delay={0.08}>
+        <div className="flex gap-1 mb-3 sm:mb-4 p-1 bg-card rounded-xl w-full sm:w-fit">
+          <button
+            onClick={() => setFilterSaved(true)}
+            className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm transition-all cursor-pointer ${
+              filterSaved
+                ? "bg-background text-accent shadow-sm"
+                : "text-muted hover:text-foreground"
+            }`}
+          >
+            <Heart size={14} className={filterSaved ? "fill-accent text-accent" : ""} />
+            Saved
+          </button>
+          <button
+            onClick={() => setFilterSaved(false)}
+            className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm transition-all cursor-pointer ${
+              !filterSaved
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted hover:text-foreground"
+            }`}
+          >
+            All
+          </button>
         </div>
       </FadeIn>
 
@@ -315,6 +380,8 @@ export default function ProductsPage() {
                 product={p}
                 onEdit={() => openEdit(p)}
                 onDelete={() => handleDelete(p.id)}
+                onToggleSave={() => handleToggleSave(p)}
+                toggling={togglingSaveId === p.id}
               />
             </FadeIn>
           ))}
@@ -482,11 +549,16 @@ function ProductRow({
   product: p,
   onEdit,
   onDelete,
+  onToggleSave,
+  toggling,
 }: {
   product: UserProduct;
   onEdit: () => void;
   onDelete: () => void;
+  onToggleSave: () => void;
+  toggling: boolean;
 }) {
+  const saved = p.is_saved === true;
   return (
     <>
       {/* Mobile: compact row. Desktop: card. */}
@@ -504,6 +576,14 @@ function ProductRow({
           </p>
         </div>
         <button
+          onClick={onToggleSave}
+          disabled={toggling}
+          aria-label={saved ? "Unsave" : "Save"}
+          className={`p-1.5 transition-colors ${saved ? "text-accent" : "text-muted/70 hover:text-accent"}`}
+        >
+          <Heart size={13} className={saved ? "fill-accent" : ""} />
+        </button>
+        <button
           onClick={onEdit}
           aria-label="Edit"
           className="p-1.5 text-muted/70 hover:text-foreground transition-colors"
@@ -519,8 +599,20 @@ function ProductRow({
         </button>
       </div>
 
-      <div className="hidden sm:block paper-grain bg-card/80 backdrop-blur-sm border border-card-border/60 rounded-2xl p-5 hover:shadow-[0_8px_30px_rgba(91,155,213,0.12)] transition-all">
-        <div className="flex items-start justify-between gap-2">
+      <div className="hidden sm:block relative paper-grain bg-card/80 backdrop-blur-sm border border-card-border/60 rounded-2xl p-5 hover:shadow-[0_8px_30px_rgba(91,155,213,0.12)] transition-all">
+        <button
+          onClick={onToggleSave}
+          disabled={toggling}
+          aria-label={saved ? "Unsave" : "Save to shelf"}
+          className={`absolute top-3 right-3 w-8 h-8 rounded-full border backdrop-blur-sm flex items-center justify-center transition-colors ${
+            saved
+              ? "bg-accent/15 border-accent/40 text-accent"
+              : "bg-background/80 border-border/60 text-muted hover:text-accent"
+          }`}
+        >
+          <Heart size={14} className={saved ? "fill-accent" : ""} />
+        </button>
+        <div className="flex items-start justify-between gap-2 pr-10">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 mb-0.5">
               <h3 className="text-sm font-medium truncate">{p.product_name}</h3>

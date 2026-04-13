@@ -25,9 +25,9 @@ export function Card({
 
   return (
     <div
-      className={`paper-grain bg-card/80 backdrop-blur-sm border border-card-border/60 rounded-2xl p-4 sm:p-6 ${
+      className={`paper-grain bg-card/80 backdrop-blur-sm border border-card-border/60 rounded-2xl p-4 sm:p-6 shadow-[0_8px_28px_-18px_rgba(59,125,216,0.35)] ${
         hover
-          ? `transition-all duration-500 hover:-translate-y-1.5 ${glowColors[glow]} cursor-pointer`
+          ? `transition-all duration-500 hover:-translate-y-1.5 hover:shadow-[0_12px_32px_-14px_rgba(59,125,216,0.45)] ${glowColors[glow]} cursor-pointer`
           : ""
       } ${className}`}
     >

@@ -4,7 +4,7 @@ import { ButtonHTMLAttributes, ReactNode, ElementType } from "react";
 
 interface GhostButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
-  variant?: "outline" | "filled" | "ghost";
+  variant?: "outline" | "filled" | "ghost" | "primary";
   size?: "sm" | "md" | "lg";
   as?: ElementType;
 }
@@ -30,8 +30,10 @@ export function GhostButton({
     outline:
       "border-2 border-accent/50 text-accent font-semibold hover:bg-accent/10 hover:border-accent hover:shadow-[0_0_30px_rgba(59,125,216,0.2)]",
     filled:
-      "bg-gradient-to-r from-accent to-accent-glow text-white font-semibold shadow-lg shadow-accent/20 hover:shadow-[0_8px_40px_rgba(59,125,216,0.35)] hover:scale-[1.03]",
+      "bg-gradient-to-r from-accent to-accent-glow text-white font-semibold shadow-[0_10px_30px_-12px_rgba(59,125,216,0.45)] hover:shadow-[0_12px_36px_-10px_rgba(59,125,216,0.55)] hover:scale-[1.03]",
     ghost: "text-muted hover:text-foreground hover:bg-card/50",
+    primary:
+      "bg-accent text-white font-semibold shadow-[0_10px_30px_-12px_rgba(59,125,216,0.45)] hover:bg-accent-deep hover:shadow-[0_12px_36px_-10px_rgba(59,125,216,0.55)] focus-visible:ring-accent-deep disabled:hover:bg-accent",
   };
 
   return (

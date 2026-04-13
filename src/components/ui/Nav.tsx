@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Logo } from "./Logo";
-import { User, LayoutDashboard, Package, Sparkles, Settings } from "lucide-react";
+import { User, LayoutDashboard, Package, Sparkles, Settings, ListChecks } from "lucide-react";
 
 const authedLinks = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/products", label: "Products", icon: Package },
   { href: "/recommendations", label: "Recommendations", icon: Sparkles },
+  { href: "/routine", label: "Routine", icon: ListChecks },
   { href: "/profile", label: "Profile", icon: Settings },
 ];
 
@@ -39,10 +40,10 @@ export function Nav() {
                 key={href}
                 href={href}
                 aria-label={label}
-                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-sm transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                className={`relative flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-sm transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                   pathname.startsWith(href)
-                    ? "bg-accent/15 text-accent glow-accent"
-                    : "text-muted hover:text-foreground hover:bg-card/50"
+                    ? "bg-accent/15 text-accent-deep glow-accent after:absolute after:left-3 after:right-3 after:-bottom-0.5 after:h-[2px] after:bg-accent after:rounded-full"
+                    : "text-muted hover:text-accent-deep hover:bg-card/50"
                 }`}
               >
                 <Icon size={15} />

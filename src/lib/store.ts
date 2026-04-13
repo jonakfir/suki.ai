@@ -41,6 +41,7 @@ export interface UserProduct {
   is_current: boolean;
   ingredients: string[];
   created_at: string;
+  is_saved?: boolean;
 }
 
 export interface ProductSuggestion {

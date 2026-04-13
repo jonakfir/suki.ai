@@ -11,6 +11,12 @@ export function Hero() {
       <AmbientOrbs variant="mixed" />
       <FloatingPetals />
 
+      {/* Radial blue glow behind headline */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_center,var(--color-accent-soft)_0%,transparent_60%)] opacity-30"
+      />
+
       <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 text-center py-16 sm:py-0">
         {/* Decorative sparkle badge */}
         <div className="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 rounded-full glass mb-6 sm:mb-8 animate-[fadeInUp_0.6s_ease-out_0.1s_both]">
@@ -28,7 +34,7 @@ export function Hero() {
         </h1>
 
         <h1 className="mb-6 animate-[fadeInUp_0.8s_ease-out_0.5s_both]">
-          <span className="inline-flex flex-wrap justify-center gap-x-[0.3em] font-[family-name:var(--font-script)] text-display sm:text-display-xl font-bold text-foreground">
+          <span className="inline-flex flex-wrap justify-center gap-x-[0.3em] font-[family-name:var(--font-script)] text-display sm:text-display-xl font-bold text-accent-ink">
             knows your skin.
           </span>
         </h1>

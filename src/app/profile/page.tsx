@@ -15,7 +15,9 @@ import {
 import { Card } from "@/components/ui/Card";
 import { GhostButton } from "@/components/ui/GhostButton";
 import { FadeIn } from "@/components/ui/FadeIn";
-import { Save, RefreshCw, LogOut } from "lucide-react";
+import { Save, RefreshCw, LogOut, Heart, Package, ListChecks } from "lucide-react";
+import Link from "next/link";
+import { UserProduct } from "@/lib/store";
 
 const skinTypes: SkinType[] = ["oily", "dry", "combination", "normal", "sensitive"];
 const tones: SkinTone[] = ["fair", "light", "medium", "tan", "deep"];
@@ -38,6 +40,12 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [savedProducts, setSavedProducts] = useState<UserProduct[]>([]);
+  const [routineCounts, setRoutineCounts] = useState<{
+    morning: number;
+    evening: number;
+    weekly: number;
+  }>({ morning: 0, evening: 0, weekly: 0 });
   const supabase = createClient();
   const router = useRouter();
 
@@ -75,6 +83,42 @@ export default function ProfilePage() {
     }
     load();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    async function loadShelf() {
+      try {
+        const res = await fetch("/api/products");
+        if (!res.ok) return;
+        const body = await res.json();
+        const all = (body.products ?? []) as UserProduct[];
+        setSavedProducts(
+          all.filter((p) => p.is_saved === true).slice(0, 6)
+        );
+      } catch (err) {
+        console.error("Failed to load shelf:", err);
+      }
+    }
+    loadShelf();
+  }, []);
+
+  useEffect(() => {
+    async function loadRoutine() {
+      try {
+        const res = await fetch("/api/routine");
+        if (!res.ok) return;
+        const body = await res.json();
+        const steps = (body.steps ?? []) as Array<{
+          time_of_day: "morning" | "evening" | "weekly";
+        }>;
+        const counts = { morning: 0, evening: 0, weekly: 0 };
+        for (const s of steps) counts[s.time_of_day]++;
+        setRoutineCounts(counts);
+      } catch (err) {
+        console.error("Failed to load routine counts:", err);
+      }
+    }
+    loadRoutine();
+  }, []);
 
   const toggleConcern = (c: string) => {
     const current = profile.skin_concerns;
@@ -323,6 +367,106 @@ export default function ProfilePage() {
                 </div>
               </div>
             </div>
+          </Card>
+        </FadeIn>
+
+        {/* Your shelf */}
+        <FadeIn delay={0.27}>
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Heart size={16} className="text-accent fill-accent" />
+                <h2 className="text-lg font-light">Your shelf</h2>
+              </div>
+              {savedProducts.length > 0 && (
+                <Link
+                  href="/products?filter=saved"
+                  className="text-xs text-accent hover:underline font-[family-name:var(--font-body)]"
+                >
+                  View all →
+                </Link>
+              )}
+            </div>
+            {savedProducts.length === 0 ? (
+              <div className="text-center py-6">
+                <Package size={32} className="text-muted/30 mx-auto mb-2" />
+                <p className="text-sm text-muted font-[family-name:var(--font-body)]">
+                  Save products from recommendations to build your shelf.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {savedProducts.map((p) => (
+                  <div
+                    key={p.id}
+                    className="relative rounded-xl border border-card-border/60 bg-background/60 p-3 flex flex-col gap-1.5"
+                  >
+                    <div className="aspect-square rounded-lg bg-gradient-to-br from-accent/10 via-accent-soft/10 to-accent-glow/10 flex items-center justify-center">
+                      <Package size={20} className="text-accent/50" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium truncate">{p.product_name}</p>
+                      <p className="text-[10px] text-muted font-[family-name:var(--font-body)] truncate">
+                        {p.brand}
+                      </p>
+                    </div>
+                    <Heart
+                      size={12}
+                      className="absolute top-2 right-2 text-accent fill-accent"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </FadeIn>
+
+        {/* Your routine */}
+        <FadeIn delay={0.28}>
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <ListChecks size={16} className="text-accent" />
+                <h2 className="text-lg font-light">Your routine</h2>
+              </div>
+              <Link
+                href="/routine"
+                className="text-xs text-accent hover:underline font-[family-name:var(--font-body)]"
+              >
+                {routineCounts.morning + routineCounts.evening + routineCounts.weekly > 0
+                  ? "Edit routine →"
+                  : "Build your daily ritual →"}
+              </Link>
+            </div>
+            {routineCounts.morning + routineCounts.evening + routineCounts.weekly === 0 ? (
+              <div className="text-center py-6">
+                <ListChecks size={32} className="text-muted/30 mx-auto mb-2" />
+                <p className="text-sm text-muted font-[family-name:var(--font-body)]">
+                  No steps yet — build your AM, PM, and weekly ritual.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-[family-name:var(--font-body)] text-sm">
+                <div className="rounded-xl border border-accent/15 bg-background/60 px-3 py-2">
+                  <span className="text-muted">Morning</span>
+                  <span className="text-accent"> · </span>
+                  <span className="text-accent-deep font-medium">{routineCounts.morning}</span>
+                  <span> {routineCounts.morning === 1 ? "step" : "steps"}</span>
+                </div>
+                <div className="rounded-xl border border-accent/15 bg-background/60 px-3 py-2">
+                  <span className="text-muted">Evening</span>
+                  <span className="text-accent"> · </span>
+                  <span className="text-accent-deep font-medium">{routineCounts.evening}</span>
+                  <span> {routineCounts.evening === 1 ? "step" : "steps"}</span>
+                </div>
+                <div className="rounded-xl border border-accent/15 bg-background/60 px-3 py-2">
+                  <span className="text-muted">Weekly</span>
+                  <span className="text-accent"> · </span>
+                  <span className="text-accent-deep font-medium">{routineCounts.weekly}</span>
+                  <span> {routineCounts.weekly === 1 ? "step" : "steps"}</span>
+                </div>
+              </div>
+            )}
           </Card>
         </FadeIn>
 
