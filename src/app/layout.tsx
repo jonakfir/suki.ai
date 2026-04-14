@@ -29,6 +29,14 @@ export const metadata: Metadata = {
   title: "suki.ai — Skincare that knows your skin.",
   description:
     "Build your skin profile, log products that work for you, and get AI-powered personalized skincare recommendations.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "48x48" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({
