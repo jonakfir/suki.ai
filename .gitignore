@@ -45,8 +45,6 @@ next-env.d.ts
 # local tooling
 /.claude
 tailwindcss-*.log
-/bun.lock
-/bun.lockb
 
 # Unused bonus frames (iCloud placeholders, TOTAL_FRAMES=168)
 /public/hero-frames/frame_0169.jpg
