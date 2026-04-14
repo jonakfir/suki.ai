@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Sun, Moon, Sparkles, ArrowUp, ArrowDown, Trash2, Plus, X } from "lucide-react";
+import { Sun, Moon, Sparkles, ArrowUp, ArrowDown, Trash2, Plus, X, ChevronRight } from "lucide-react";
+import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { GhostButton } from "@/components/ui/GhostButton";
 import { FadeIn } from "@/components/ui/FadeIn";
@@ -152,6 +153,22 @@ export default function RoutinePage() {
         subtitle="Build your AM, PM, and weekly ritual — in the order that works for your skin."
       />
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+
+      {/* Scorer CTA */}
+      <FadeIn className="mb-6">
+        <Link href="/routine/scorer" className="block">
+          <Card hover glow="accent" className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-accent/15 flex items-center justify-center shrink-0">
+              <Sparkles className="w-5 h-5 text-accent" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground">Score your current routine</p>
+              <p className="text-xs text-muted">Find out how well your products fit your skin type.</p>
+            </div>
+            <ChevronRight className="w-5 h-5 text-muted shrink-0" />
+          </Card>
+        </Link>
+      </FadeIn>
 
       {error && (
         <div className="mb-4 rounded-xl border border-red-200 bg-red-50 text-red-600 px-3 py-2 text-sm flex items-center justify-between">

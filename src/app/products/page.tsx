@@ -29,6 +29,7 @@ interface CatalogHit {
   ingredients: string[];
   price_range: string;
   description: string;
+  image_url?: string;
 }
 
 const categories: ProductCategory[] = [

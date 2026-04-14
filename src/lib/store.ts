@@ -42,6 +42,8 @@ export interface UserProduct {
   ingredients: string[];
   created_at: string;
   is_saved?: boolean;
+  image_url?: string;
+  barcode?: string;
 }
 
 export interface ProductSuggestion {

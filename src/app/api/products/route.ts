@@ -63,6 +63,8 @@ export async function POST(request: Request) {
         notes: body.notes || "",
         is_current: body.is_current || false,
         ingredients: body.ingredients || [],
+        image_url: body.image_url || null,
+        barcode: body.barcode || null,
       })
       .select()
       .single();

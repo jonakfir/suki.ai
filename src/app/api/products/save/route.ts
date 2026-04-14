@@ -48,6 +48,8 @@ export async function POST(request: Request) {
         category?: string;
         ingredients?: string[];
         key_ingredients?: string[];
+        image_url?: string;
+        barcode?: string;
       };
     };
 
@@ -82,6 +84,8 @@ export async function POST(request: Request) {
           is_current: false,
           is_saved: true,
           ingredients,
+          image_url: suggestion.image_url || null,
+          barcode: suggestion.barcode || null,
         })
         .select()
         .single();
