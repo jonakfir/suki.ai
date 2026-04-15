@@ -8,10 +8,14 @@ import { Features } from "@/components/landing/Features";
 import { SocialProof } from "@/components/landing/SocialProof";
 import { CTA } from "@/components/landing/CTA";
 import { FloatingBubbles } from "@/components/ui/SkincareElements";
+import { FloatingProducts } from "@/components/ui/FloatingProducts";
+import { ParallaxBlobs } from "@/components/landing/ParallaxBlobs";
 
 export default function LandingPage() {
   return (
     <div className="relative min-h-screen">
+      <ParallaxBlobs />
+      <FloatingProducts />
       <GlobalReveal />
       <ParticleField />
       <FloatingBubbles />

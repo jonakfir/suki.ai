@@ -4,8 +4,6 @@ import "./globals.css";
 import { Nav } from "@/components/ui/Nav";
 import { Footer } from "@/components/ui/Footer";
 import { AIChatWidget } from "@/components/ui/AIChatWidget";
-import { ParallaxBlobs } from "@/components/landing/ParallaxBlobs";
-import { FloatingProducts } from "@/components/ui/FloatingProducts";
 
 const playfair = Playfair_Display({
   variable: "--font-heading",
@@ -50,8 +48,6 @@ export default function RootLayout({
       className={`${playfair.variable} ${dmSans.variable} ${dancing.variable}`}
     >
       <body className="min-h-screen flex flex-col antialiased">
-        <ParallaxBlobs />
-        <FloatingProducts />
         <Nav />
         <main className="flex-1">{children}</main>
         <Footer />
