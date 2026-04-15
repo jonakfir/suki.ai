@@ -49,12 +49,21 @@ export default function AuthPage() {
       resetUserData();
 
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { data: { full_name: name } },
+          options: {
+            data: { full_name: name },
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
+          },
         });
         if (error) throw error;
+        // If email confirmation is required, user won't have a session yet
+        if (data.user && !data.session) {
+          setError("Check your email for a confirmation link, then sign in.");
+          setLoading(false);
+          return;
+        }
         router.push("/onboard");
       } else {
         const { error } = await supabase.auth.signInWithPassword({
@@ -71,11 +80,11 @@ export default function AuthPage() {
     }
   };
 
-  const handleGoogleAuth = async () => {
+  const handleOAuth = async (provider: "google" | "apple") => {
     await clearAdminCookie();
     resetUserData();
     await supabase.auth.signInWithOAuth({
-      provider: "google",
+      provider,
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
       },
@@ -149,14 +158,24 @@ export default function AuthPage() {
           </div>
         </div>
 
-        <GhostButton
-          variant="outline"
-          className="w-full"
-          onClick={handleGoogleAuth}
-        >
-          <Mail size={16} />
-          Continue with Google
-        </GhostButton>
+        <div className="flex flex-col gap-3">
+          <GhostButton
+            variant="outline"
+            className="w-full"
+            onClick={() => handleOAuth("apple")}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+            Continue with Apple
+          </GhostButton>
+          <GhostButton
+            variant="outline"
+            className="w-full"
+            onClick={() => handleOAuth("google")}
+          >
+            <Mail size={16} />
+            Continue with Google
+          </GhostButton>
+        </div>
 
         <p className="text-center text-sm text-muted mt-6">
           {isSignUp ? "Already have an account?" : "New to suki.ai?"}{" "}
