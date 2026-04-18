@@ -5,6 +5,7 @@ import { Nav } from "@/components/ui/Nav";
 import { Footer } from "@/components/ui/Footer";
 import { AIChatWidget } from "@/components/ui/AIChatWidget";
 import { BottomTabNav } from "@/components/ui/BottomTabNav";
+import { AppBackdrop } from "@/components/ui/AppBackdrop";
 
 const playfair = Playfair_Display({
   variable: "--font-heading",
@@ -50,6 +51,7 @@ export default function RootLayout({
     >
       <body className="min-h-screen flex flex-col antialiased">
         <Nav />
+        <AppBackdrop />
         <main className="flex-1">{children}</main>
         <Footer />
         <AIChatWidget />
