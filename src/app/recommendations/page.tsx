@@ -6,6 +6,7 @@ import { GhostButton } from "@/components/ui/GhostButton";
 import { Pill } from "@/components/ui/Pill";
 import { FadeIn, StaggerChildren, StaggerItem } from "@/components/ui/FadeIn";
 import { PageHero } from "@/components/ui/PageHero";
+import { wrapAffiliate } from "@/lib/affiliate";
 import {
   Sparkles,
   ShieldAlert,
@@ -539,13 +540,13 @@ function RecCard({
   const s = rec.product_suggestion;
   const isAvoid = rec.type === "avoid";
   const query = encodeURIComponent(`${s.brand} ${s.name}`.trim());
-  const buyHref =
+  const rawBuy =
     s.buy_url || `https://www.google.com/search?tbm=shop&q=${query}`;
-  const imgSrc =
-    s.image_url ||
-    `https://loremflickr.com/400/500/${encodeURIComponent(
-      ["skincare", s.category, "beauty"].filter(Boolean).join(",")
-    )}`;
+  const buyHref = wrapAffiliate(rawBuy) ?? rawBuy;
+  const imgSrc = s.image_url || null;
+  const brand = s.brand?.trim() || "";
+  const name = s.name?.trim() || "";
+  const initial = (brand || name || "•").charAt(0).toUpperCase() || "•";
 
   return (
     <div className="group relative flex flex-col h-full overflow-hidden rounded-2xl glass border border-card-border/60 transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_20px_60px_rgba(126,184,232,0.15)]">
@@ -573,18 +574,32 @@ function RecCard({
         </button>
       </div>
 
-      <div className="relative aspect-[4/5] w-full overflow-hidden bg-gradient-to-br from-accent/10 via-lavender/10 to-rose/10">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={imgSrc}
-          alt={`${s.brand} ${s.name}`}
-          loading="lazy"
-          className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-          onError={(e) => {
-            (e.currentTarget as HTMLImageElement).style.display = "none";
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/10 to-transparent" />
+      <div className="relative aspect-[4/5] w-full overflow-hidden bg-gradient-to-br from-accent/25 via-lavender/20 to-rose/20 flex items-center justify-center">
+        {imgSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={imgSrc}
+            alt={`${s.brand} ${s.name}`}
+            loading="lazy"
+            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).style.display = "none";
+            }}
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center text-accent-deep/70">
+            <span
+              className="font-[family-name:var(--font-heading)] text-6xl font-light leading-none"
+              aria-hidden
+            >
+              {initial}
+            </span>
+            <span className="mt-2 text-[10px] uppercase tracking-widest text-muted">
+              {s.category?.replace(/_/g, " ")}
+            </span>
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/10 to-transparent pointer-events-none" />
         {swapping && (
           <div className="absolute inset-0 flex items-center justify-center bg-background/70 backdrop-blur-sm">
             <Loader2 size={22} className="text-accent animate-spin" />

@@ -23,7 +23,7 @@ export async function GET(request: Request) {
           .single();
 
         if (profile) {
-          return NextResponse.redirect(`${origin}/dashboard`);
+          return NextResponse.redirect(`${origin}/today`);
         }
         return NextResponse.redirect(`${origin}/onboard`);
       }

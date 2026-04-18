@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ADMIN_USER_ID } from "@/lib/admin";
+import { verifyAdminCookie, ADMIN_COOKIE_NAME } from "@/lib/admin-cookie";
 import { callClaude, isClaudeConfigured } from "@/lib/claude-client";
 
 type Sup = Awaited<ReturnType<typeof createClient>> | ReturnType<typeof createAdminClient>;
@@ -34,7 +35,7 @@ function enrich(item: Suggestion): Suggestion {
 export async function POST(request: Request) {
   try {
     const cookieStore = await cookies();
-    const isAdmin = cookieStore.get("admin-session")?.value === "true";
+    const isAdmin = await verifyAdminCookie(cookieStore.get(ADMIN_COOKIE_NAME)?.value);
     let userId: string;
     let supabase: Sup;
 

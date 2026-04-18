@@ -1,7 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useStore, UserProduct, ProductCategory, ProductRating } from "@/lib/store";
+import {
+  useStore,
+  UserProduct,
+  ProductCategory,
+  ProductRating,
+  SKINCARE_CATEGORIES,
+  HAIRCARE_CATEGORIES,
+  MAKEUP_CATEGORIES,
+  domainForCategory,
+} from "@/lib/store";
+import { conflictsWithNew } from "@/lib/ingredient-conflicts";
 import { Card } from "@/components/ui/Card";
 import { GhostButton } from "@/components/ui/GhostButton";
 import { Pill } from "@/components/ui/Pill";
@@ -33,9 +43,12 @@ interface CatalogHit {
 }
 
 const categories: ProductCategory[] = [
-  "cleanser", "toner", "serum", "moisturizer", "sunscreen",
-  "exfoliant", "mask", "eye_cream", "oil", "treatment", "other",
+  ...SKINCARE_CATEGORIES,
+  ...HAIRCARE_CATEGORIES,
+  ...MAKEUP_CATEGORIES,
 ];
+
+const SHADE_FINISHES = ["matte", "satin", "natural", "dewy", "glossy", "shimmer"];
 
 const ratings: { value: ProductRating; label: string; icon: typeof Heart }[] = [
   { value: "love", label: "Love it", icon: Heart },
@@ -51,6 +64,9 @@ interface ProductForm {
   notes: string;
   is_current: boolean;
   ingredients: string;
+  shade_name: string;
+  shade_hex: string;
+  shade_finish: string;
 }
 
 const emptyForm: ProductForm = {
@@ -61,6 +77,9 @@ const emptyForm: ProductForm = {
   notes: "",
   is_current: false,
   ingredients: "",
+  shade_name: "",
+  shade_hex: "",
+  shade_finish: "",
 };
 
 export default function ProductsPage() {
@@ -169,6 +188,9 @@ export default function ProductsPage() {
       notes: p.notes,
       is_current: p.is_current,
       ingredients: p.ingredients.join(", "),
+      shade_name: p.shade_name ?? "",
+      shade_hex: p.shade_hex ?? "",
+      shade_finish: p.shade_finish ?? "",
     });
     setEditingId(p.id);
     setModalOpen(true);
@@ -177,10 +199,12 @@ export default function ProductsPage() {
   const handleSave = async () => {
     setSaving(true);
     setSaveError("");
+    const domain = domainForCategory(form.category);
     const payload = {
       product_name: form.product_name,
       brand: form.brand,
       category: form.category,
+      domain,
       rating: form.rating,
       notes: form.notes,
       is_current: form.is_current,
@@ -188,6 +212,9 @@ export default function ProductsPage() {
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean),
+      shade_name: domain === "makeup" ? form.shade_name.trim() || null : null,
+      shade_hex: domain === "makeup" ? form.shade_hex.trim() || null : null,
+      shade_finish: domain === "makeup" ? form.shade_finish.trim() || null : null,
     };
 
     try {
@@ -476,11 +503,27 @@ export default function ProductsPage() {
                 }
                 className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-sm"
               >
-                {categories.map((c) => (
-                  <option key={c} value={c}>
-                    {c.replace("_", " ")}
-                  </option>
-                ))}
+                <optgroup label="Skincare">
+                  {SKINCARE_CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c.replace(/_/g, " ")}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Haircare">
+                  {HAIRCARE_CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c.replace(/_/g, " ")}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Makeup">
+                  {MAKEUP_CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c.replace(/_/g, " ")}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
             </div>
             <div className="space-y-1.5">
@@ -518,6 +561,82 @@ export default function ProductsPage() {
             value={form.ingredients}
             onChange={(e) => setForm({ ...form, ingredients: e.target.value })}
           />
+
+          <ConflictWarnings
+            newIngredients={form.ingredients
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean)}
+            existingProducts={products}
+            excludeId={editingId}
+          />
+
+          {domainForCategory(form.category) === "makeup" && (
+            <div className="rounded-xl border border-[var(--card-border)] bg-background/40 p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Shade</label>
+                {form.shade_hex && (
+                  <span
+                    className="w-5 h-5 rounded-full border border-[var(--card-border)]"
+                    style={{ background: form.shade_hex }}
+                    aria-label="Shade preview"
+                  />
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <FormInput
+                  label="Shade name"
+                  placeholder="e.g. 220 Natural Beige"
+                  value={form.shade_name}
+                  onChange={(e) => setForm({ ...form, shade_name: e.target.value })}
+                />
+                <div className="space-y-1.5">
+                  <label className="block text-sm font-medium">Color</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={form.shade_hex || "#E8C4A0"}
+                      onChange={(e) => setForm({ ...form, shade_hex: e.target.value })}
+                      className="w-10 h-10 rounded-lg border border-[var(--card-border)] bg-background cursor-pointer"
+                      aria-label="Pick shade color"
+                    />
+                    <input
+                      type="text"
+                      placeholder="#RRGGBB"
+                      value={form.shade_hex}
+                      onChange={(e) => setForm({ ...form, shade_hex: e.target.value })}
+                      className="flex-1 px-3 py-2 rounded-xl border border-border bg-background text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium">Finish</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {SHADE_FINISHES.map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() =>
+                        setForm({
+                          ...form,
+                          shade_finish: form.shade_finish === f ? "" : f,
+                        })
+                      }
+                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                        form.shade_finish === f
+                          ? "border-accent bg-accent/10 text-accent-deep"
+                          : "border-[var(--card-border)] text-muted hover:border-accent/30"
+                      }`}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input
               type="checkbox"
@@ -691,4 +810,52 @@ function RatingBadge({ rating }: { rating: ProductRating }) {
         </span>
       );
   }
+}
+
+function ConflictWarnings({
+  newIngredients,
+  existingProducts,
+  excludeId,
+}: {
+  newIngredients: string[];
+  existingProducts: UserProduct[];
+  excludeId: string | null;
+}) {
+  if (newIngredients.length === 0) return null;
+  const existing = existingProducts
+    .filter((p) => p.id !== excludeId && p.is_current)
+    .map((p) => p.ingredients ?? []);
+  const hits = conflictsWithNew(newIngredients, existing);
+  if (hits.length === 0) return null;
+  return (
+    <div className="space-y-2">
+      {hits.map((h) => {
+        const tone =
+          h.rule.severity === "avoid"
+            ? "border-red-300 bg-red-50 text-red-700"
+            : h.rule.severity === "caution"
+              ? "border-amber-300 bg-amber-50 text-amber-800"
+              : "border-[var(--card-border)] bg-card text-foreground";
+        return (
+          <div
+            key={h.rule.id}
+            className={`rounded-xl border px-3 py-2 text-xs ${tone}`}
+          >
+            <div className="flex items-start gap-2">
+              <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="font-medium">{h.rule.title}</div>
+                <div className="mt-0.5 opacity-80">{h.rule.explanation}</div>
+                {h.rule.alternatives && (
+                  <div className="mt-1 italic opacity-80">
+                    Try: {h.rule.alternatives}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }

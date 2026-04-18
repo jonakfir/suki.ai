@@ -8,6 +8,7 @@ export type AgeRange = "teens" | "20s" | "30s" | "40s" | "50+";
 export type Budget = "drugstore" | "mid-range" | "luxury" | "mixed";
 export type RoutineComplexity = "minimal" | "moderate" | "full";
 export type ProductCategory =
+  // skincare
   | "cleanser"
   | "toner"
   | "serum"
@@ -18,8 +19,94 @@ export type ProductCategory =
   | "eye_cream"
   | "oil"
   | "treatment"
-  | "other";
+  | "other"
+  // haircare
+  | "shampoo"
+  | "conditioner"
+  | "hair_mask"
+  | "hair_oil"
+  | "hair_styling"
+  | "scalp_treatment"
+  | "heat_protectant"
+  | "leave_in"
+  // makeup
+  | "foundation"
+  | "concealer"
+  | "powder"
+  | "blush"
+  | "bronzer"
+  | "highlighter"
+  | "lipstick"
+  | "lip_gloss"
+  | "lip_liner"
+  | "eyeshadow"
+  | "eyeliner"
+  | "mascara"
+  | "brow"
+  | "primer"
+  | "setting_spray"
+  | "makeup_remover";
 export type ProductRating = "love" | "neutral" | "bad_reaction";
+
+export type ProductDomain = "skincare" | "haircare" | "makeup";
+export type HairType = "straight" | "wavy" | "curly" | "coily";
+export type HairTexture = "fine" | "medium" | "thick";
+export type HairPorosity = "low" | "medium" | "high";
+export type MakeupStyle = "natural" | "everyday" | "bold" | "glam" | "editorial";
+export type CoveragePreference = "sheer" | "medium" | "full";
+export type FinishPreference = "matte" | "natural" | "dewy" | "glossy";
+export type Undertone = "warm" | "cool" | "neutral" | "olive";
+export type PreferenceMode = "budget" | "simple" | "high_end" | "most_recommended";
+
+export const SKINCARE_CATEGORIES: ProductCategory[] = [
+  "cleanser",
+  "toner",
+  "serum",
+  "moisturizer",
+  "sunscreen",
+  "exfoliant",
+  "mask",
+  "eye_cream",
+  "oil",
+  "treatment",
+  "other",
+];
+
+export const HAIRCARE_CATEGORIES: ProductCategory[] = [
+  "shampoo",
+  "conditioner",
+  "hair_mask",
+  "hair_oil",
+  "hair_styling",
+  "scalp_treatment",
+  "heat_protectant",
+  "leave_in",
+];
+
+export const MAKEUP_CATEGORIES: ProductCategory[] = [
+  "foundation",
+  "concealer",
+  "powder",
+  "blush",
+  "bronzer",
+  "highlighter",
+  "lipstick",
+  "lip_gloss",
+  "lip_liner",
+  "eyeshadow",
+  "eyeliner",
+  "mascara",
+  "brow",
+  "primer",
+  "setting_spray",
+  "makeup_remover",
+];
+
+export function domainForCategory(c: ProductCategory): ProductDomain {
+  if (HAIRCARE_CATEGORIES.includes(c)) return "haircare";
+  if (MAKEUP_CATEGORIES.includes(c)) return "makeup";
+  return "skincare";
+}
 
 export interface SkinProfile {
   skin_type: SkinType | null;
@@ -29,6 +116,20 @@ export interface SkinProfile {
   known_allergies: string[];
   budget: Budget | null;
   routine_complexity: RoutineComplexity | null;
+  // hair
+  hair_type?: HairType | null;
+  hair_texture?: HairTexture | null;
+  hair_porosity?: HairPorosity | null;
+  hair_concerns?: string[];
+  hair_goals?: string[];
+  is_color_treated?: boolean;
+  // makeup
+  makeup_style?: MakeupStyle | null;
+  coverage_preference?: CoveragePreference | null;
+  finish_preference?: FinishPreference | null;
+  undertone?: Undertone | null;
+  // preference
+  preference_mode?: PreferenceMode;
 }
 
 export interface UserProduct {
@@ -36,6 +137,7 @@ export interface UserProduct {
   product_name: string;
   brand: string;
   category: ProductCategory;
+  domain?: ProductDomain;
   rating: ProductRating;
   notes: string;
   is_current: boolean;
@@ -44,6 +146,9 @@ export interface UserProduct {
   is_saved?: boolean;
   image_url?: string;
   barcode?: string;
+  shade_name?: string;
+  shade_hex?: string;
+  shade_finish?: string;
 }
 
 export interface ProductSuggestion {
@@ -95,6 +200,17 @@ const emptyProfile: SkinProfile = {
   known_allergies: [],
   budget: null,
   routine_complexity: null,
+  hair_type: null,
+  hair_texture: null,
+  hair_porosity: null,
+  hair_concerns: [],
+  hair_goals: [],
+  is_color_treated: false,
+  makeup_style: null,
+  coverage_preference: null,
+  finish_preference: null,
+  undertone: null,
+  preference_mode: "most_recommended",
 };
 
 export const useStore = create<AppState>((set) => ({

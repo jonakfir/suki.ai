@@ -4,6 +4,7 @@ import { callClaude, isClaudeConfigured } from "@/lib/claude-client";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ADMIN_USER_ID } from "@/lib/admin";
+import { verifyAdminCookie, ADMIN_COOKIE_NAME } from "@/lib/admin-cookie";
 import { searchProducts, type OBFProduct } from "@/lib/open-beauty-facts";
 import {
   analyzeIngredients,
@@ -196,7 +197,7 @@ export async function POST(request: Request) {
   try {
     /* ── Auth ── */
     const cookieStore = await cookies();
-    const isAdmin = cookieStore.get("admin-session")?.value === "true";
+    const isAdmin = await verifyAdminCookie(cookieStore.get(ADMIN_COOKIE_NAME)?.value);
     if (!isAdmin) {
       const supabase = await createClient();
       const {

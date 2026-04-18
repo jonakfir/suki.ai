@@ -2,11 +2,17 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const PROXY_TIMEOUT_MS = 120_000;
 
+export interface ClaudeImage {
+  base64: string;
+  mediaType: string; // e.g. "image/jpeg", "image/png", "image/webp"
+}
+
 interface ClaudeCallOptions {
   system: string;
   prompt: string;
   model?: string;
   maxTokens?: number;
+  image?: ClaudeImage | null;
 }
 
 interface ClaudeCallResult {
@@ -95,11 +101,30 @@ async function callSdk(opts: ClaudeCallOptions): Promise<ClaudeCallResult> {
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY not set");
 
   const client = new Anthropic({ apiKey });
+
+  const userContent: Anthropic.MessageParam["content"] = opts.image
+    ? [
+        {
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: opts.image.mediaType as
+              | "image/jpeg"
+              | "image/png"
+              | "image/webp"
+              | "image/gif",
+            data: opts.image.base64,
+          },
+        },
+        { type: "text", text: opts.prompt },
+      ]
+    : opts.prompt;
+
   const response = await client.messages.create({
     model: opts.model ?? "claude-sonnet-4-6",
     max_tokens: opts.maxTokens ?? 4000,
     system: opts.system,
-    messages: [{ role: "user", content: opts.prompt }],
+    messages: [{ role: "user", content: userContent }],
   });
 
   const text =
@@ -118,6 +143,10 @@ async function callSdk(opts: ClaudeCallOptions): Promise<ClaudeCallResult> {
 export async function callClaude(
   opts: ClaudeCallOptions
 ): Promise<ClaudeCallResult> {
+  // Images go straight to the SDK — the proxy is text-only.
+  if (opts.image) {
+    return callSdk(opts);
+  }
   if (isProxyConfigured()) {
     try {
       return await callProxy(opts);

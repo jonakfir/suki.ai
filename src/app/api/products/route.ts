@@ -3,14 +3,46 @@ import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ADMIN_USER_ID } from "@/lib/admin";
+import { verifyAdminCookie, ADMIN_COOKIE_NAME } from "@/lib/admin-cookie";
 
 type SupabaseLike = Awaited<ReturnType<typeof createClient>> | ReturnType<typeof createAdminClient>;
+
+const HAIR_CATEGORIES = new Set([
+  "shampoo", "conditioner", "hair_mask", "hair_oil", "hair_styling",
+  "scalp_treatment", "heat_protectant", "leave_in",
+]);
+const MAKEUP_CATEGORIES = new Set([
+  "foundation", "concealer", "powder", "blush", "bronzer", "highlighter",
+  "lipstick", "lip_gloss", "lip_liner", "eyeshadow", "eyeliner", "mascara",
+  "brow", "primer", "setting_spray", "makeup_remover",
+]);
+
+function deriveDomain(category: string): "skincare" | "haircare" | "makeup" {
+  if (HAIR_CATEGORIES.has(category)) return "haircare";
+  if (MAKEUP_CATEGORIES.has(category)) return "makeup";
+  return "skincare";
+}
+
+function sanitizeUrl(u: unknown): string | null {
+  if (typeof u !== "string") return null;
+  const trimmed = u.trim();
+  if (!trimmed) return null;
+  // Only allow http(s) — no javascript:, data:, file:, etc.
+  if (!/^https?:\/\//i.test(trimmed)) return null;
+  try {
+    // Will throw on malformed.
+    new URL(trimmed);
+    return trimmed;
+  } catch {
+    return null;
+  }
+}
 
 async function resolveAuth(): Promise<
   { userId: string; supabase: SupabaseLike } | { error: Response }
 > {
   const cookieStore = await cookies();
-  const isAdmin = cookieStore.get("admin-session")?.value === "true";
+  const isAdmin = await verifyAdminCookie(cookieStore.get(ADMIN_COOKIE_NAME)?.value);
 
   if (isAdmin) {
     return { userId: ADMIN_USER_ID, supabase: createAdminClient() };
@@ -52,19 +84,27 @@ export async function POST(request: Request) {
 
     const body = await request.json();
 
+    const category = (body.category || "other") as string;
+    // Always derive domain from category — never trust a client-supplied value.
+    const domain = deriveDomain(category);
+
     const { data, error } = await auth.supabase
       .from("user_products")
       .insert({
         user_id: auth.userId,
-        product_name: body.product_name,
-        brand: body.brand,
-        category: body.category || "other",
+        product_name: String(body.product_name || "").trim(),
+        brand: String(body.brand || "").trim(),
+        category,
+        domain,
         rating: body.rating || "neutral",
-        notes: body.notes || "",
-        is_current: body.is_current || false,
-        ingredients: body.ingredients || [],
-        image_url: body.image_url || null,
-        barcode: body.barcode || null,
+        notes: typeof body.notes === "string" ? body.notes : "",
+        is_current: body.is_current === true,
+        ingredients: Array.isArray(body.ingredients) ? body.ingredients : [],
+        image_url: sanitizeUrl(body.image_url),
+        barcode: typeof body.barcode === "string" ? body.barcode : null,
+        shade_name: domain === "makeup" && typeof body.shade_name === "string" ? body.shade_name : null,
+        shade_hex: domain === "makeup" && typeof body.shade_hex === "string" ? body.shade_hex : null,
+        shade_finish: domain === "makeup" && typeof body.shade_finish === "string" ? body.shade_finish : null,
       })
       .select()
       .single();
@@ -84,14 +124,35 @@ export async function PATCH(request: Request) {
     if ("error" in auth) return auth.error;
 
     const body = await request.json();
-    const { id, ...fields } = body;
+    const { id } = body;
     if (!id) {
       return NextResponse.json({ error: "Missing id" }, { status: 400 });
     }
 
+    // Whitelist the fields clients are allowed to PATCH — do not let them
+    // overwrite user_id, created_at, etc.
+    const PATCH_FIELDS = [
+      "product_name", "brand", "category",
+      "rating", "notes", "is_current", "ingredients",
+      "image_url", "barcode", "is_saved",
+      "shade_name", "shade_hex", "shade_finish",
+    ] as const;
+    const update: Record<string, unknown> = {};
+    for (const key of PATCH_FIELDS) {
+      if (key in body) update[key] = body[key];
+    }
+    // image_url: only accept http(s) URLs.
+    if ("image_url" in update) {
+      update.image_url = sanitizeUrl(update.image_url);
+    }
+    // Domain is always derived from category — never accepted from client.
+    if (typeof update.category === "string") {
+      update.domain = deriveDomain(update.category);
+    }
+
     const { data, error } = await auth.supabase
       .from("user_products")
-      .update(fields)
+      .update(update)
       .eq("id", id)
       .eq("user_id", auth.userId)
       .select()

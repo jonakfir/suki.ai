@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ADMIN_USER_ID } from "@/lib/admin";
+import { verifyAdminCookie, ADMIN_COOKIE_NAME } from "@/lib/admin-cookie";
 
 type SupabaseLike = Awaited<ReturnType<typeof createClient>> | ReturnType<typeof createAdminClient>;
 
@@ -10,7 +11,7 @@ async function resolveAuth(): Promise<
   { userId: string; supabase: SupabaseLike } | { error: Response }
 > {
   const cookieStore = await cookies();
-  const isAdmin = cookieStore.get("admin-session")?.value === "true";
+  const isAdmin = await verifyAdminCookie(cookieStore.get(ADMIN_COOKIE_NAME)?.value);
   if (isAdmin) {
     return { userId: ADMIN_USER_ID, supabase: createAdminClient() };
   }

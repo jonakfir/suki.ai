@@ -15,6 +15,12 @@ import {
   AgeRange,
   Budget,
   RoutineComplexity,
+  HairType,
+  HairTexture,
+  MakeupStyle,
+  CoveragePreference,
+  FinishPreference,
+  Undertone,
 } from "@/lib/store";
 import {
   Droplets,
@@ -29,9 +35,55 @@ import {
   Clock,
   ChevronRight,
   ChevronLeft,
+  Scissors,
 } from "lucide-react";
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 8;
+
+const hairTypes: { value: HairType; label: string; description: string }[] = [
+  { value: "straight", label: "Straight", description: "Falls flat, little to no wave" },
+  { value: "wavy",     label: "Wavy",     description: "Loose S-pattern, can get frizzy" },
+  { value: "curly",    label: "Curly",    description: "Defined curls, needs moisture" },
+  { value: "coily",    label: "Coily",    description: "Tight coils or kinks, very fragile" },
+];
+
+const hairTextures: { value: HairTexture; label: string }[] = [
+  { value: "fine",   label: "Fine" },
+  { value: "medium", label: "Medium" },
+  { value: "thick",  label: "Thick" },
+];
+
+const hairConcernOptions = [
+  "dryness", "frizz", "breakage", "dandruff", "thinning", "oiliness", "heat damage", "split ends",
+];
+
+const undertones: { value: Undertone; label: string }[] = [
+  { value: "warm",    label: "Warm" },
+  { value: "cool",    label: "Cool" },
+  { value: "neutral", label: "Neutral" },
+  { value: "olive",   label: "Olive" },
+];
+
+const makeupStyles: { value: MakeupStyle; label: string; description: string }[] = [
+  { value: "natural",    label: "Natural",    description: "Barely-there, skin-first" },
+  { value: "everyday",   label: "Everyday",   description: "Polished but understated" },
+  { value: "bold",       label: "Bold",       description: "Eyes or lips that pop" },
+  { value: "glam",       label: "Glam",       description: "Full-face, occasion-ready" },
+  { value: "editorial",  label: "Editorial",  description: "Experimental, trend-forward" },
+];
+
+const coverages: { value: CoveragePreference; label: string }[] = [
+  { value: "sheer",  label: "Sheer" },
+  { value: "medium", label: "Medium" },
+  { value: "full",   label: "Full" },
+];
+
+const finishes: { value: FinishPreference; label: string }[] = [
+  { value: "matte",   label: "Matte" },
+  { value: "natural", label: "Natural" },
+  { value: "dewy",    label: "Dewy" },
+  { value: "glossy",  label: "Glossy" },
+];
 
 const skinTypes: { value: SkinType; label: string; icon: typeof Droplets; description: string }[] = [
   { value: "oily", label: "Oily", icon: Droplets, description: "Shiny by midday, visible pores, prone to breakouts" },
@@ -101,6 +153,21 @@ export default function OnboardPage() {
   const next = () => setStep((s) => Math.min(s + 1, TOTAL_STEPS));
   const prev = () => setStep((s) => Math.max(s - 1, 1));
 
+  // Per-step gating — steps 6 and 7 are optional (hair + makeup).
+  const canAdvance = (): boolean => {
+    switch (step) {
+      case 1: return !!profile.skin_type;
+      case 2: return (profile.skin_concerns ?? []).length > 0;
+      case 3: return !!profile.skin_tone && !!profile.age_range;
+      case 4: return true; // allergies optional
+      case 5: return !!profile.budget && !!profile.routine_complexity;
+      case 6:
+      case 7:
+      default:
+        return true;
+    }
+  };
+
   const toggleConcern = (c: string) => {
     const lower = c.toLowerCase();
     const current = profile.skin_concerns;
@@ -139,6 +206,20 @@ export default function OnboardPage() {
         known_allergies: allergies,
         budget: profile.budget,
         routine_complexity: profile.routine_complexity,
+        // hair (optional — only saved if user filled anything)
+        hair_type: profile.hair_type ?? null,
+        hair_texture: profile.hair_texture ?? null,
+        hair_porosity: profile.hair_porosity ?? null,
+        hair_concerns: profile.hair_concerns ?? [],
+        hair_goals: profile.hair_goals ?? [],
+        is_color_treated: profile.is_color_treated ?? false,
+        // makeup (optional)
+        undertone: profile.undertone ?? null,
+        makeup_style: profile.makeup_style ?? null,
+        coverage_preference: profile.coverage_preference ?? null,
+        finish_preference: profile.finish_preference ?? null,
+        // preference (defaults to most_recommended in DB)
+        preference_mode: profile.preference_mode ?? "most_recommended",
       };
 
       if (admin) {
@@ -164,7 +245,7 @@ export default function OnboardPage() {
       }
 
       fetch("/api/recommendations", { method: "POST" }).catch(() => {});
-      router.push("/dashboard");
+      router.push("/today");
     } catch (err) {
       const e = err as { message?: string; code?: string; details?: string; hint?: string };
       const msg = e?.message || e?.details || e?.hint || (err instanceof Error ? err.message : JSON.stringify(err));
@@ -428,8 +509,193 @@ export default function OnboardPage() {
               </div>
             )}
 
-            {/* Step 6: Optional first products */}
+            {/* Step 6: Hair (optional) */}
             {step === 6 && (
+              <div>
+                <div className="flex justify-center mb-2">
+                  <Scissors size={20} className="text-[var(--rose)]" />
+                </div>
+                <h2 className="text-h2 font-light text-center mb-2 px-2">
+                  Tell us about your hair
+                </h2>
+                <p className="text-sm text-muted text-center mb-6 font-[family-name:var(--font-body)]">
+                  Optional — tap <span className="font-medium">Skip</span> if you&apos;d rather not.
+                </p>
+
+                <p className="text-xs uppercase tracking-widest text-muted mb-2">Hair type</p>
+                <div className="grid grid-cols-2 gap-2 mb-5">
+                  {hairTypes.map((h) => (
+                    <button
+                      key={h.value}
+                      type="button"
+                      onClick={() => setProfile({ hair_type: h.value })}
+                      className={`text-left p-3 rounded-xl border transition-all ${
+                        profile.hair_type === h.value
+                          ? "border-accent bg-accent/5"
+                          : "border-border hover:border-accent/30"
+                      }`}
+                    >
+                      <p className="text-sm font-medium">{h.label}</p>
+                      <p className="text-xs text-muted">{h.description}</p>
+                    </button>
+                  ))}
+                </div>
+
+                <p className="text-xs uppercase tracking-widest text-muted mb-2">Texture</p>
+                <div className="flex flex-wrap gap-2 mb-5">
+                  {hairTextures.map((t) => (
+                    <button
+                      key={t.value}
+                      type="button"
+                      onClick={() => setProfile({ hair_texture: t.value })}
+                      className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+                        profile.hair_texture === t.value
+                          ? "border-accent bg-accent/10 text-accent-deep"
+                          : "border-border text-muted hover:border-accent/30"
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+
+                <p className="text-xs uppercase tracking-widest text-muted mb-2">Concerns</p>
+                <div className="flex flex-wrap gap-2 mb-5">
+                  {hairConcernOptions.map((c) => {
+                    const arr = profile.hair_concerns ?? [];
+                    const active = arr.includes(c);
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() =>
+                          setProfile({
+                            hair_concerns: active
+                              ? arr.filter((x) => x !== c)
+                              : [...arr, c],
+                          })
+                        }
+                        className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+                          active
+                            ? "border-accent bg-accent/10 text-accent-deep"
+                            : "border-border text-muted hover:border-accent/30"
+                        }`}
+                      >
+                        {c}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={profile.is_color_treated ?? false}
+                    onChange={(e) =>
+                      setProfile({ is_color_treated: e.target.checked })
+                    }
+                    className="rounded border-border accent-accent"
+                  />
+                  My hair is color-treated
+                </label>
+              </div>
+            )}
+
+            {/* Step 7: Makeup (optional) */}
+            {step === 7 && (
+              <div>
+                <div className="flex justify-center mb-2">
+                  <Palette size={20} className="text-[var(--gold)]" />
+                </div>
+                <h2 className="text-h2 font-light text-center mb-2 px-2">
+                  And your makeup?
+                </h2>
+                <p className="text-sm text-muted text-center mb-6 font-[family-name:var(--font-body)]">
+                  Optional — we&apos;ll use this to suggest shades and finishes that flatter you.
+                </p>
+
+                <p className="text-xs uppercase tracking-widest text-muted mb-2">Undertone</p>
+                <div className="flex flex-wrap gap-2 mb-5">
+                  {undertones.map((u) => (
+                    <button
+                      key={u.value}
+                      type="button"
+                      onClick={() => setProfile({ undertone: u.value })}
+                      className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+                        profile.undertone === u.value
+                          ? "border-accent bg-accent/10 text-accent-deep"
+                          : "border-border text-muted hover:border-accent/30"
+                      }`}
+                    >
+                      {u.label}
+                    </button>
+                  ))}
+                </div>
+
+                <p className="text-xs uppercase tracking-widest text-muted mb-2">Style</p>
+                <div className="grid grid-cols-1 gap-2 mb-5">
+                  {makeupStyles.map((m) => (
+                    <button
+                      key={m.value}
+                      type="button"
+                      onClick={() => setProfile({ makeup_style: m.value })}
+                      className={`text-left p-3 rounded-xl border transition-all ${
+                        profile.makeup_style === m.value
+                          ? "border-accent bg-accent/5"
+                          : "border-border hover:border-accent/30"
+                      }`}
+                    >
+                      <p className="text-sm font-medium">{m.label}</p>
+                      <p className="text-xs text-muted">{m.description}</p>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs uppercase tracking-widest text-muted mb-2">Coverage</p>
+                    <div className="flex flex-wrap gap-2">
+                      {coverages.map((c) => (
+                        <button
+                          key={c.value}
+                          type="button"
+                          onClick={() => setProfile({ coverage_preference: c.value })}
+                          className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+                            profile.coverage_preference === c.value
+                              ? "border-accent bg-accent/10 text-accent-deep"
+                              : "border-border text-muted hover:border-accent/30"
+                          }`}
+                        >
+                          {c.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-widest text-muted mb-2">Finish</p>
+                    <div className="flex flex-wrap gap-2">
+                      {finishes.map((f) => (
+                        <button
+                          key={f.value}
+                          type="button"
+                          onClick={() => setProfile({ finish_preference: f.value })}
+                          className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+                            profile.finish_preference === f.value
+                              ? "border-accent bg-accent/10 text-accent-deep"
+                              : "border-border text-muted hover:border-accent/30"
+                          }`}
+                        >
+                          {f.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Step 8: All set */}
+            {step === 8 && (
               <div className="text-center">
                 <Sparkles size={32} className="text-accent mx-auto mb-4" />
                 <h2 className="text-h2 font-light mb-2 px-2">
@@ -437,7 +703,7 @@ export default function OnboardPage() {
                 </h2>
                 <p className="text-sm text-muted mb-8 font-[family-name:var(--font-body)] max-w-sm mx-auto">
                   suki. has everything it needs to start making smart
-                  recommendations. You can add products from your dashboard.
+                  recommendations. You can add products any time.
                 </p>
                 <GhostButton
                   variant="filled"
@@ -445,7 +711,7 @@ export default function OnboardPage() {
                   onClick={handleFinish}
                   disabled={saving}
                 >
-                  {saving ? "Saving your profile..." : "Go to my dashboard"}
+                  {saving ? "Saving your profile..." : "Go to Today"}
                 </GhostButton>
                 {saveError && (
                   <p className="mt-4 text-sm text-red-500 font-[family-name:var(--font-body)] max-w-sm mx-auto break-words">
@@ -469,10 +735,21 @@ export default function OnboardPage() {
               <ChevronLeft size={16} />
               Back
             </GhostButton>
-            <GhostButton variant="outline" onClick={next}>
-              Continue
-              <ChevronRight size={16} />
-            </GhostButton>
+            <div className="flex items-center gap-2">
+              {(step === 6 || step === 7) && (
+                <GhostButton variant="ghost" onClick={next}>
+                  Skip
+                </GhostButton>
+              )}
+              <GhostButton
+                variant="outline"
+                onClick={next}
+                disabled={!canAdvance()}
+              >
+                Continue
+                <ChevronRight size={16} />
+              </GhostButton>
+            </div>
           </div>
         )}
       </div>

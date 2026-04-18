@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useStore } from "@/lib/store";
 import { clearAdminSession } from "@/lib/admin";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Logo } from "@/components/ui/Logo";
 import { FormInput } from "@/components/ui/FormInput";
 import { GhostButton } from "@/components/ui/GhostButton";
@@ -41,7 +42,7 @@ export default function AuthPage() {
       if (adminRes.ok) {
         await supabase.auth.signOut().catch(() => {});
         resetUserData();
-        router.push("/dashboard");
+        router.push("/today");
         return;
       }
 
@@ -71,7 +72,7 @@ export default function AuthPage() {
           password,
         });
         if (error) throw error;
-        router.push("/dashboard");
+        router.push("/today");
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -130,6 +131,17 @@ export default function AuthPage() {
             required
             minLength={6}
           />
+
+          {!isSignUp && (
+            <div className="text-right -mt-2">
+              <Link
+                href="/auth/reset"
+                className="text-xs text-muted hover:text-accent-deep"
+              >
+                Forgot password?
+              </Link>
+            </div>
+          )}
 
           {error && (
             <p className="text-sm text-red-400 text-center">{error}</p>

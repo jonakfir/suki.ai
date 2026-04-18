@@ -1,10 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { verifyAdminCookie, ADMIN_COOKIE_NAME } from "@/lib/admin-cookie";
 
 export async function middleware(request: NextRequest) {
   // Allow admin sessions through
-  const adminSession = request.cookies.get("admin-session");
-  if (adminSession?.value === "true") {
+  const adminSession = request.cookies.get(ADMIN_COOKIE_NAME);
+  if (await verifyAdminCookie(adminSession?.value)) {
     return NextResponse.next();
   }
 
@@ -44,6 +45,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next|favicon\\.ico|hero-frames|auth|api|.*\\.(?:svg|png|jpg|jpeg|gif|webp|mp4|ico|js|css)$)(?!$).*)",
+    "/((?!_next|favicon\\.ico|hero-frames|auth|api|privacy|.*\\.(?:svg|png|jpg|jpeg|gif|webp|mp4|ico|js|css)$)(?!$).*)",
   ],
 };

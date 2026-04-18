@@ -1,5 +1,26 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import {
+  signAdminCookie,
+  ADMIN_COOKIE_NAME,
+  ADMIN_COOKIE_TTL_SEC,
+} from "@/lib/admin-cookie";
+
+// Constant-time string compare — prevents timing-based length/prefix leaks.
+function safeEqual(a: string, b: string): boolean {
+  if (typeof a !== "string" || typeof b !== "string") return false;
+  const enc = new TextEncoder();
+  const ab = enc.encode(a);
+  const bb = enc.encode(b);
+  // Pad the shorter one so length differences don't early-return, still
+  // deterministically false when lengths differ.
+  const len = Math.max(ab.length, bb.length);
+  let diff = ab.length ^ bb.length;
+  for (let i = 0; i < len; i++) {
+    diff |= (ab[i] ?? 0) ^ (bb[i] ?? 0);
+  }
+  return diff === 0;
+}
 
 export async function POST(request: Request) {
   const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
@@ -8,16 +29,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Admin login disabled" }, { status: 401 });
   }
 
-  const { email, password } = await request.json();
+  let email = "";
+  let password = "";
+  try {
+    const body = await request.json();
+    email = typeof body.email === "string" ? body.email : "";
+    password = typeof body.password === "string" ? body.password : "";
+  } catch {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
 
-  if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+  if (safeEqual(email, ADMIN_EMAIL) && safeEqual(password, ADMIN_PASSWORD)) {
+    const value = await signAdminCookie(ADMIN_COOKIE_TTL_SEC);
     const cookieStore = await cookies();
-    cookieStore.set("admin-session", "true", {
+    cookieStore.set(ADMIN_COOKIE_NAME, value, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      sameSite: "strict",
       path: "/",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      maxAge: ADMIN_COOKIE_TTL_SEC,
     });
 
     return NextResponse.json({ success: true, role: "admin" });
@@ -28,7 +58,7 @@ export async function POST(request: Request) {
 
 export async function DELETE() {
   const cookieStore = await cookies();
-  cookieStore.set("admin-session", "", {
+  cookieStore.set(ADMIN_COOKIE_NAME, "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
