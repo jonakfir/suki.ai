@@ -143,7 +143,7 @@ function matchesNeedle(haystack: string, needle: string): boolean {
   if (h === n) return true;
   // Short needles must match with word boundaries on both sides.
   const tokenize = /\w+/g;
-  const tokens = h.match(tokenize) ?? [];
+  const tokens: string[] = h.match(tokenize) ?? [];
   if (n.includes(" ")) {
     // Multi-word: fall back to substring but require space/punct boundary.
     const re = new RegExp(`(^|[^a-z0-9])${escapeRegex(n)}([^a-z0-9]|$)`, "i");
