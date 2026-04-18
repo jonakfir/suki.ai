@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
@@ -8,7 +8,6 @@ import { isAdminSession, ADMIN_USER_ID } from "@/lib/admin";
 import { useStore } from "@/lib/store";
 import { GhostButton } from "@/components/ui/GhostButton";
 import { Logo } from "@/components/ui/Logo";
-import { SelectionButton } from "@/components/onboard/SelectionButton";
 import {
   SkinType,
   SkinTone,
@@ -30,21 +29,85 @@ import {
   ShieldAlert,
   Sparkles,
   Palette,
-  Calendar,
   Wallet,
   Clock,
   ChevronRight,
   ChevronLeft,
   Scissors,
+  Camera,
+  Loader2,
+  User as UserIcon,
 } from "lucide-react";
 
 const TOTAL_STEPS = 8;
 
+const skinTypes: { value: SkinType; label: string; icon: typeof Droplets; description: string }[] = [
+  { value: "oily",        label: "Oily",        icon: Droplets,    description: "Shiny by midday, visible pores, prone to breakouts" },
+  { value: "dry",         label: "Dry",         icon: Sun,         description: "Tight, flaky, sometimes rough — needs constant moisture" },
+  { value: "combination", label: "Combination", icon: Layers,      description: "Oily T-zone, dry cheeks" },
+  { value: "normal",      label: "Normal",      icon: CircleDot,   description: "Balanced, rarely breaks out, low maintenance" },
+  { value: "sensitive",   label: "Sensitive",   icon: ShieldAlert, description: "Reacts easily, redness-prone, needs gentle formulas" },
+];
+
+const concerns = [
+  "Acne", "Hyperpigmentation", "Redness", "Aging", "Dullness",
+  "Large pores", "Dark circles", "Dehydration", "Texture", "Sun damage",
+];
+
+const tones: { value: SkinTone; label: string }[] = [
+  { value: "fair",   label: "Fair" },
+  { value: "light",  label: "Light" },
+  { value: "medium", label: "Medium" },
+  { value: "tan",    label: "Tan" },
+  { value: "deep",   label: "Deep" },
+];
+
+const ageRanges: { value: AgeRange; label: string }[] = [
+  { value: "teens", label: "Teens" },
+  { value: "20s",   label: "20s" },
+  { value: "30s",   label: "30s" },
+  { value: "40s",   label: "40s" },
+  { value: "50+",   label: "50+" },
+];
+
+const races = [
+  "Asian",
+  "Black / African",
+  "East Asian",
+  "Hispanic / Latinx",
+  "Middle Eastern / North African",
+  "Native / Indigenous",
+  "Pacific Islander",
+  "South Asian",
+  "Southeast Asian",
+  "White / European",
+  "Mixed / Multiple",
+  "Prefer not to say",
+];
+
+const commonAllergies = [
+  "Fragrance", "Essential oils", "Sulfates", "Parabens",
+  "Alcohol", "Silicones", "Dyes", "Nickel",
+];
+
+const budgets: { value: Budget; label: string }[] = [
+  { value: "drugstore", label: "Drugstore" },
+  { value: "mid-range", label: "Mid-range" },
+  { value: "luxury",    label: "Luxury" },
+  { value: "mixed",     label: "A mix" },
+];
+
+const complexities: { value: RoutineComplexity; label: string; description: string }[] = [
+  { value: "minimal",  label: "Minimal",  description: "3 steps max" },
+  { value: "moderate", label: "Moderate", description: "5-7 steps" },
+  { value: "full",     label: "Full",     description: "All in — 10+ steps" },
+];
+
 const hairTypes: { value: HairType; label: string; description: string }[] = [
-  { value: "straight", label: "Straight", description: "Falls flat, little to no wave" },
-  { value: "wavy",     label: "Wavy",     description: "Loose S-pattern, can get frizzy" },
-  { value: "curly",    label: "Curly",    description: "Defined curls, needs moisture" },
-  { value: "coily",    label: "Coily",    description: "Tight coils or kinks, very fragile" },
+  { value: "straight", label: "Straight", description: "Falls flat" },
+  { value: "wavy",     label: "Wavy",     description: "Loose S-pattern" },
+  { value: "curly",    label: "Curly",    description: "Defined curls" },
+  { value: "coily",    label: "Coily",    description: "Tight coils or kinks" },
 ];
 
 const hairTextures: { value: HairTexture; label: string }[] = [
@@ -65,11 +128,11 @@ const undertones: { value: Undertone; label: string }[] = [
 ];
 
 const makeupStyles: { value: MakeupStyle; label: string; description: string }[] = [
-  { value: "natural",    label: "Natural",    description: "Barely-there, skin-first" },
-  { value: "everyday",   label: "Everyday",   description: "Polished but understated" },
-  { value: "bold",       label: "Bold",       description: "Eyes or lips that pop" },
-  { value: "glam",       label: "Glam",       description: "Full-face, occasion-ready" },
-  { value: "editorial",  label: "Editorial",  description: "Experimental, trend-forward" },
+  { value: "natural",   label: "Natural",   description: "Barely-there, skin-first" },
+  { value: "everyday",  label: "Everyday",  description: "Polished but understated" },
+  { value: "bold",      label: "Bold",      description: "Eyes or lips that pop" },
+  { value: "glam",      label: "Glam",      description: "Full-face, occasion-ready" },
+  { value: "editorial", label: "Editorial", description: "Experimental, trend-forward" },
 ];
 
 const coverages: { value: CoveragePreference; label: string }[] = [
@@ -85,65 +148,26 @@ const finishes: { value: FinishPreference; label: string }[] = [
   { value: "glossy",  label: "Glossy" },
 ];
 
-const skinTypes: { value: SkinType; label: string; icon: typeof Droplets; description: string }[] = [
-  { value: "oily", label: "Oily", icon: Droplets, description: "Shiny by midday, visible pores, prone to breakouts" },
-  { value: "dry", label: "Dry", icon: Sun, description: "Tight, flaky, sometimes rough — needs constant moisture" },
-  { value: "combination", label: "Combination", icon: Layers, description: "Oily T-zone, dry cheeks — the best of both worlds" },
-  { value: "normal", label: "Normal", icon: CircleDot, description: "Balanced, rarely breaks out, low maintenance" },
-  { value: "sensitive", label: "Sensitive", icon: ShieldAlert, description: "Reacts easily, redness-prone, needs gentle formulas" },
-];
-
-const concerns = [
-  "Acne", "Hyperpigmentation", "Redness", "Aging", "Dullness",
-  "Large pores", "Dark circles", "Dehydration", "Texture", "Sun damage",
-];
-
-const tones: { value: SkinTone; label: string }[] = [
-  { value: "fair", label: "Fair" },
-  { value: "light", label: "Light" },
-  { value: "medium", label: "Medium" },
-  { value: "tan", label: "Tan" },
-  { value: "deep", label: "Deep" },
-];
-
-const ageRanges: { value: AgeRange; label: string }[] = [
-  { value: "teens", label: "Teens" },
-  { value: "20s", label: "20s" },
-  { value: "30s", label: "30s" },
-  { value: "40s", label: "40s" },
-  { value: "50+", label: "50+" },
-];
-
-const commonAllergies = [
-  "Fragrance", "Niacinamide", "Retinol", "Salicylic acid",
-  "Vitamin C", "AHA/BHA", "Essential oils", "Alcohol",
-];
-
-const budgets: { value: Budget; label: string; description: string }[] = [
-  { value: "drugstore", label: "Drugstore", description: "Under $20 per product" },
-  { value: "mid-range", label: "Mid-range", description: "$20-50 per product" },
-  { value: "luxury", label: "Luxury", description: "$50+ per product" },
-  { value: "mixed", label: "Mixed", description: "Depends on the product" },
-];
-
-const complexities: { value: RoutineComplexity; label: string; description: string }[] = [
-  { value: "minimal", label: "Keep it simple", description: "3-4 steps max — cleanser, moisturizer, SPF" },
-  { value: "moderate", label: "Middle ground", description: "5-7 steps — room for serums and treatments" },
-  { value: "full", label: "Full ritual", description: "8+ steps — I love a thorough routine" },
-];
-
 export default function OnboardPage() {
   const [step, setStep] = useState(1);
   const { profile, setProfile } = useStore();
   const [allergies, setAllergies] = useState<string[]>([]);
   const [customAllergy, setCustomAllergy] = useState("");
+  const [productsUsing, setProductsUsing] = useState("");
+  const [productsBad, setProductsBad] = useState("");
+  const [hairProducts, setHairProducts] = useState("");
+  const [makeupProducts, setMakeupProducts] = useState("");
+  const [facePhotoUrl, setFacePhotoUrl] = useState<string | null>(null);
+  const [facePhotoPath, setFacePhotoPath] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const supabase = createClient();
   const resetUserData = useStore((s) => s.resetUserData);
 
-  // Start fresh — never carry over a previous session's profile answers
   useEffect(() => {
     resetUserData();
     setAllergies([]);
@@ -152,21 +176,6 @@ export default function OnboardPage() {
 
   const next = () => setStep((s) => Math.min(s + 1, TOTAL_STEPS));
   const prev = () => setStep((s) => Math.max(s - 1, 1));
-
-  // Per-step gating — steps 6 and 7 are optional (hair + makeup).
-  const canAdvance = (): boolean => {
-    switch (step) {
-      case 1: return !!profile.skin_type;
-      case 2: return (profile.skin_concerns ?? []).length > 0;
-      case 3: return !!profile.skin_tone && !!profile.age_range;
-      case 4: return true; // allergies optional
-      case 5: return !!profile.budget && !!profile.routine_complexity;
-      case 6:
-      case 7:
-      default:
-        return true;
-    }
-  };
 
   const toggleConcern = (c: string) => {
     const lower = c.toLowerCase();
@@ -192,6 +201,51 @@ export default function OnboardPage() {
     }
   };
 
+  const handleFile = async (file: File | null) => {
+    if (!file) return;
+    setUploadError(null);
+    const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
+    if (!ALLOWED.includes(file.type)) {
+      setUploadError("Please use JPEG, PNG, or WebP.");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setUploadError("Photo too large (max 8 MB).");
+      return;
+    }
+    setUploading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setUploadError("Sign in required to upload.");
+        return;
+      }
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const safeExt = /^[a-z0-9]{2,5}$/.test(ext) ? ext : "jpg";
+      const path = `${user.id}/${crypto.randomUUID()}.${safeExt}`;
+      const up = await supabase.storage
+        .from("face-photos")
+        .upload(path, file, {
+          contentType: file.type,
+          upsert: false,
+        });
+      if (up.error) throw up.error;
+      const signed = await supabase.storage
+        .from("face-photos")
+        .createSignedUrl(path, 60 * 60);
+      if (signed.error || !signed.data?.signedUrl) {
+        throw signed.error || new Error("Failed to sign URL.");
+      }
+      setFacePhotoUrl(signed.data.signedUrl);
+      setFacePhotoPath(path);
+    } catch (e) {
+      setUploadError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
   const handleFinish = async () => {
     setSaving(true);
     setSaveError("");
@@ -206,19 +260,23 @@ export default function OnboardPage() {
         known_allergies: allergies,
         budget: profile.budget,
         routine_complexity: profile.routine_complexity,
-        // hair (optional — only saved if user filled anything)
+        race: profile.race ?? null,
+        face_photo_url: facePhotoUrl,
+        face_photo_storage_path: facePhotoPath,
+        initial_products_using: productsUsing.trim() || null,
+        initial_products_bad: productsBad.trim() || null,
+        initial_hair_products: hairProducts.trim() || null,
+        initial_makeup_products: makeupProducts.trim() || null,
         hair_type: profile.hair_type ?? null,
         hair_texture: profile.hair_texture ?? null,
         hair_porosity: profile.hair_porosity ?? null,
         hair_concerns: profile.hair_concerns ?? [],
         hair_goals: profile.hair_goals ?? [],
         is_color_treated: profile.is_color_treated ?? false,
-        // makeup (optional)
         undertone: profile.undertone ?? null,
         makeup_style: profile.makeup_style ?? null,
         coverage_preference: profile.coverage_preference ?? null,
         finish_preference: profile.finish_preference ?? null,
-        // preference (defaults to most_recommended in DB)
         preference_mode: profile.preference_mode ?? "most_recommended",
       };
 
@@ -240,16 +298,24 @@ export default function OnboardPage() {
         }
         const { error } = await supabase
           .from("users_profile")
-          .upsert({ user_id: user.id, ...profilePayload }, { onConflict: "user_id" });
+          .upsert(
+            { user_id: user.id, ...profilePayload },
+            { onConflict: "user_id" }
+          );
         if (error) throw error;
       }
 
+      // Fire-and-forget recommendations generation.
       fetch("/api/recommendations", { method: "POST" }).catch(() => {});
       router.push("/today");
     } catch (err) {
-      const e = err as { message?: string; code?: string; details?: string; hint?: string };
-      const msg = e?.message || e?.details || e?.hint || (err instanceof Error ? err.message : JSON.stringify(err));
-      console.error("Failed to save profile:", { message: e?.message, code: e?.code, details: e?.details, hint: e?.hint, raw: err });
+      const e = err as { message?: string; details?: string; hint?: string };
+      const msg =
+        e?.message ||
+        e?.details ||
+        e?.hint ||
+        (err instanceof Error ? err.message : JSON.stringify(err));
+      console.error("Failed to save profile:", err);
       setSaveError(msg);
     } finally {
       setSaving(false);
@@ -266,7 +332,6 @@ export default function OnboardPage() {
     <div className="min-h-[calc(100svh-7rem)] flex flex-col items-center px-4 sm:px-6 py-8 sm:py-12">
       <Logo className="text-2xl sm:text-3xl mb-6 sm:mb-8" />
 
-      {/* Progress bar */}
       <div className="w-full max-w-md mb-8 sm:mb-12">
         <div className="h-1 bg-border rounded-full overflow-hidden">
           <motion.div
@@ -276,11 +341,11 @@ export default function OnboardPage() {
           />
         </div>
         <p className="text-xs text-muted mt-2 text-center font-[family-name:var(--font-body)]">
-          Step {step} of {TOTAL_STEPS}
+          Step {step} of {TOTAL_STEPS} — every question is optional
         </p>
       </div>
 
-      <div className="w-full max-w-lg pb-24 sm:pb-0">
+      <div className="w-full max-w-lg pb-32 sm:pb-0">
         <AnimatePresence mode="wait">
           <motion.div
             key={step}
@@ -290,236 +355,354 @@ export default function OnboardPage() {
             exit="exit"
             transition={{ duration: 0.25 }}
           >
-            {/* Step 1: Skin Type */}
+            {/* Step 1: Basic info (age + race) */}
             {step === 1 && (
               <div>
+                <div className="flex justify-center mb-2">
+                  <UserIcon size={22} className="text-accent-deep" />
+                </div>
                 <h2 className="text-h2 font-light text-center mb-2 px-2">
-                  What&apos;s your skin type?
+                  Tell us about you
                 </h2>
-                <p className="text-sm text-muted text-center mb-8 font-[family-name:var(--font-body)]">
-                  Choose the one that best describes your skin on most days.
+                <p className="text-sm text-muted text-center mb-6 font-[family-name:var(--font-body)]">
+                  So we can tailor recommendations. All optional.
                 </p>
-                <div className="space-y-3">
+
+                <p className="text-xs uppercase tracking-widest text-muted mb-2">Age</p>
+                <div className="flex flex-wrap gap-2 mb-6">
+                  {ageRanges.map((a) => (
+                    <button
+                      key={a.value}
+                      type="button"
+                      onClick={() => setProfile({ age_range: a.value })}
+                      className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+                        profile.age_range === a.value
+                          ? "border-accent bg-accent/10 text-accent-deep"
+                          : "border-border text-muted hover:border-accent/30"
+                      }`}
+                    >
+                      {a.label}
+                    </button>
+                  ))}
+                </div>
+
+                <p className="text-xs uppercase tracking-widest text-muted mb-2">Ethnicity</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {races.map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setProfile({ race: r })}
+                      className={`text-left text-xs px-3 py-2 rounded-xl border transition-all ${
+                        profile.race === r
+                          ? "border-accent bg-accent/10 text-accent-deep"
+                          : "border-border text-muted hover:border-accent/30"
+                      }`}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: Skin photo */}
+            {step === 2 && (
+              <div>
+                <div className="flex justify-center mb-2">
+                  <Camera size={22} className="text-accent-deep" />
+                </div>
+                <h2 className="text-h2 font-light text-center mb-2 px-2">
+                  Show us your skin
+                </h2>
+                <p className="text-sm text-muted text-center mb-6 font-[family-name:var(--font-body)]">
+                  A clear, makeup-free selfie helps us read your skin directly. Private to you.
+                </p>
+
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  capture="user"
+                  className="hidden"
+                  onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
+                />
+
+                {facePhotoUrl ? (
+                  <div className="flex flex-col items-center gap-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={facePhotoUrl}
+                      alt="Your skin"
+                      className="w-48 h-60 object-cover rounded-2xl border border-[var(--card-border)]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileRef.current?.click()}
+                      className="text-xs text-muted hover:text-foreground underline"
+                    >
+                      Change photo
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    disabled={uploading}
+                    className="w-full aspect-[4/5] max-w-xs mx-auto flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[var(--card-border)] text-muted hover:border-accent/40 hover:text-accent-deep transition-colors disabled:opacity-50"
+                  >
+                    {uploading ? (
+                      <>
+                        <Loader2 size={28} className="animate-spin" />
+                        <span className="text-sm">Uploading…</span>
+                      </>
+                    ) : (
+                      <>
+                        <Camera size={28} />
+                        <span className="text-sm">Take or upload a selfie</span>
+                      </>
+                    )}
+                  </button>
+                )}
+                {uploadError && (
+                  <p className="mt-3 text-xs text-red-500 text-center break-all">
+                    {uploadError}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Step 3: Skin type + tone + concerns */}
+            {step === 3 && (
+              <div>
+                <div className="flex justify-center mb-2">
+                  <Droplets size={22} className="text-accent-deep" />
+                </div>
+                <h2 className="text-h2 font-light text-center mb-2 px-2">
+                  Your skin
+                </h2>
+                <p className="text-sm text-muted text-center mb-6 font-[family-name:var(--font-body)]">
+                  If you&apos;re not sure, just skip — we can infer this later.
+                </p>
+
+                <p className="text-xs uppercase tracking-widest text-muted mb-2">Skin type</p>
+                <div className="space-y-2 mb-5">
                   {skinTypes.map((st) => (
                     <button
                       key={st.value}
+                      type="button"
                       onClick={() => setProfile({ skin_type: st.value })}
-                      className={`w-full flex items-start gap-4 p-4 rounded-2xl border transition-all text-left cursor-pointer ${
+                      className={`w-full flex items-start gap-3 p-3 rounded-xl border transition-all text-left ${
                         profile.skin_type === st.value
-                          ? "border-accent bg-accent/5 shadow-[0_4px_12px_rgba(126,184,232,0.15)]"
+                          ? "border-accent bg-accent/5"
                           : "border-border hover:border-accent/30"
                       }`}
                     >
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                        profile.skin_type === st.value ? "bg-accent/15" : "bg-card"
-                      }`}>
-                        <st.icon size={18} className={profile.skin_type === st.value ? "text-accent" : "text-muted"} />
-                      </div>
+                      <st.icon size={16} className="mt-0.5 text-accent-deep shrink-0" />
                       <div>
                         <p className="font-medium text-sm">{st.label}</p>
-                        <p className="text-xs text-muted mt-0.5 font-[family-name:var(--font-body)]">{st.description}</p>
+                        <p className="text-xs text-muted">{st.description}</p>
                       </div>
                     </button>
                   ))}
                 </div>
-              </div>
-            )}
 
-            {/* Step 2: Concerns */}
-            {step === 2 && (
-              <div>
-                <h2 className="text-h2 font-light text-center mb-2 px-2">
-                  What are your skin concerns?
-                </h2>
-                <p className="text-sm text-muted text-center mb-8 font-[family-name:var(--font-body)]">
-                  Select all that apply. suki. will tailor recommendations to these.
-                </p>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  {concerns.map((c) => (
+                <p className="text-xs uppercase tracking-widest text-muted mb-2">Tone</p>
+                <div className="flex flex-wrap gap-2 mb-5">
+                  {tones.map((t) => (
                     <button
-                      key={c}
-                      onClick={() => toggleConcern(c)}
-                      className={`px-4 py-2 rounded-full text-sm transition-all cursor-pointer ${
-                        profile.skin_concerns.includes(c.toLowerCase())
-                          ? "bg-accent/15 text-accent border border-accent/30"
-                          : "bg-card text-muted border border-card-border hover:border-accent/30"
+                      key={t.value}
+                      type="button"
+                      onClick={() => setProfile({ skin_tone: t.value })}
+                      className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+                        profile.skin_tone === t.value
+                          ? "border-accent bg-accent/10 text-accent-deep"
+                          : "border-border text-muted hover:border-accent/30"
                       }`}
                     >
-                      {c}
+                      {t.label}
                     </button>
                   ))}
                 </div>
-              </div>
-            )}
 
-            {/* Step 3: Tone + Age */}
-            {step === 3 && (
-              <div className="space-y-10">
-                <div>
-                  <h2 className="text-h2 font-light text-center mb-2 px-2">
-                    <Palette size={20} className="inline mr-2 text-accent" />
-                    Skin tone
-                  </h2>
-                  <p className="text-sm text-muted text-center mb-6 font-[family-name:var(--font-body)]">
-                    This helps suki. recommend products suited to your complexion.
-                  </p>
-                  <div className="flex flex-wrap gap-2 justify-center">
-                    {tones.map((t) => (
-                      <SelectionButton
-                        key={t.value}
-                        value={t.value}
-                        label={t.label}
-                        selected={profile.skin_tone === t.value}
-                        onSelect={(v) => setProfile({ skin_tone: v })}
-                      />
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <h2 className="text-h2 font-light text-center mb-2 px-2">
-                    <Calendar size={20} className="inline mr-2 text-accent" />
-                    Age range
-                  </h2>
-                  <div className="flex flex-wrap gap-2 justify-center">
-                    {ageRanges.map((a) => (
-                      <SelectionButton
-                        key={a.value}
-                        value={a.value}
-                        label={a.label}
-                        selected={profile.age_range === a.value}
-                        onSelect={(v) => setProfile({ age_range: v })}
-                      />
-                    ))}
-                  </div>
+                <p className="text-xs uppercase tracking-widest text-muted mb-2">Concerns</p>
+                <div className="flex flex-wrap gap-2">
+                  {concerns.map((c) => {
+                    const active = profile.skin_concerns.includes(c.toLowerCase());
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => toggleConcern(c)}
+                        className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+                          active
+                            ? "border-accent bg-accent/10 text-accent-deep"
+                            : "border-border text-muted hover:border-accent/30"
+                        }`}
+                      >
+                        {c}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
 
-            {/* Step 4: Allergies */}
+            {/* Step 4: Allergies + current skincare products */}
             {step === 4 && (
               <div>
+                <div className="flex justify-center mb-2">
+                  <ShieldAlert size={22} className="text-accent-deep" />
+                </div>
                 <h2 className="text-h2 font-light text-center mb-2 px-2">
-                  Any known allergies or sensitivities?
+                  Allergies & current products
                 </h2>
-                <p className="text-sm text-muted text-center mb-8 font-[family-name:var(--font-body)]">
-                  Select common ones or type your own. suki. will avoid these in recommendations.
+                <p className="text-sm text-muted text-center mb-6 font-[family-name:var(--font-body)]">
+                  Anything we should avoid? And what you&apos;ve tried.
                 </p>
-                <div className="flex flex-wrap gap-2 justify-center mb-6">
+
+                <p className="text-xs uppercase tracking-widest text-muted mb-2">Known allergens</p>
+                <div className="flex flex-wrap gap-2 mb-3">
                   {commonAllergies.map((a) => (
                     <button
                       key={a}
+                      type="button"
                       onClick={() => toggleAllergy(a)}
-                      className={`px-4 py-2 rounded-full text-sm transition-all cursor-pointer ${
+                      className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
                         allergies.includes(a)
-                          ? "bg-red-50 text-red-500 border border-red-200"
-                          : "bg-card text-muted border border-card-border hover:border-accent/30"
+                          ? "border-accent bg-accent/10 text-accent-deep"
+                          : "border-border text-muted hover:border-accent/30"
                       }`}
                     >
                       {a}
                     </button>
                   ))}
                 </div>
-                <div className="flex gap-2 max-w-sm mx-auto">
+                <div className="flex gap-2 mb-6">
                   <input
                     type="text"
-                    placeholder="Add another..."
                     value={customAllergy}
                     onChange={(e) => setCustomAllergy(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && addCustomAllergy()}
-                    className="flex-1 px-4 py-2 rounded-xl border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addCustomAllergy();
+                      }
+                    }}
+                    placeholder="Other allergen…"
+                    className="flex-1 rounded-lg border border-[var(--card-border)] bg-background/60 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent/40"
                   />
-                  <GhostButton size="sm" onClick={addCustomAllergy}>
+                  <button
+                    type="button"
+                    onClick={addCustomAllergy}
+                    className="text-xs px-3 rounded-lg border border-[var(--card-border)] text-muted hover:text-accent-deep hover:border-accent/40"
+                  >
                     Add
-                  </GhostButton>
+                  </button>
                 </div>
-                {allergies.filter((a) => !commonAllergies.includes(a)).length > 0 && (
-                  <div className="flex flex-wrap gap-2 justify-center mt-4">
-                    {allergies
-                      .filter((a) => !commonAllergies.includes(a))
-                      .map((a) => (
-                        <span
-                          key={a}
-                          className="px-3 py-1 rounded-full text-xs bg-red-50 text-red-500 border border-red-200"
-                        >
-                          {a}
-                          <button
-                            onClick={() => toggleAllergy(a)}
-                            className="ml-1.5 hover:text-red-700"
-                          >
-                            &times;
-                          </button>
-                        </span>
-                      ))}
+                {allergies.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-5">
+                    {allergies.map((a) => (
+                      <span
+                        key={a}
+                        className="text-xs px-2.5 py-1 rounded-full bg-accent/10 text-accent-deep"
+                      >
+                        {a}
+                      </span>
+                    ))}
                   </div>
                 )}
+
+                <label className="block text-xs uppercase tracking-widest text-muted mb-2 mt-2">
+                  Products you currently use
+                </label>
+                <textarea
+                  rows={3}
+                  value={productsUsing}
+                  onChange={(e) => setProductsUsing(e.target.value)}
+                  placeholder="e.g. CeraVe Hydrating Cleanser, The Ordinary Niacinamide"
+                  className="w-full rounded-lg border border-[var(--card-border)] bg-background/60 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent/40 mb-4"
+                />
+
+                <label className="block text-xs uppercase tracking-widest text-muted mb-2">
+                  Products that didn&apos;t work
+                </label>
+                <textarea
+                  rows={2}
+                  value={productsBad}
+                  onChange={(e) => setProductsBad(e.target.value)}
+                  placeholder="e.g. Drunk Elephant Protini — broke me out"
+                  className="w-full rounded-lg border border-[var(--card-border)] bg-background/60 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent/40"
+                />
               </div>
             )}
 
-            {/* Step 5: Budget + Complexity */}
+            {/* Step 5: Budget + complexity */}
             {step === 5 && (
-              <div className="space-y-10">
-                <div>
-                  <h2 className="text-h2 font-light text-center mb-2 px-2">
-                    <Wallet size={20} className="inline mr-2 text-accent" />
-                    Budget preference
-                  </h2>
-                  <div className="space-y-3 mt-6">
-                    {budgets.map((b) => (
-                      <button
-                        key={b.value}
-                        onClick={() => setProfile({ budget: b.value })}
-                        className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all text-left cursor-pointer ${
-                          profile.budget === b.value
-                            ? "border-accent bg-accent/5"
-                            : "border-border hover:border-accent/30"
-                        }`}
-                      >
-                        <div>
-                          <p className="font-medium text-sm">{b.label}</p>
-                          <p className="text-xs text-muted font-[family-name:var(--font-body)]">{b.description}</p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
+              <div>
+                <div className="flex justify-center mb-2">
+                  <Wallet size={22} className="text-accent-deep" />
                 </div>
-                <div>
-                  <h2 className="text-h2 font-light text-center mb-2 px-2">
-                    <Clock size={20} className="inline mr-2 text-accent" />
-                    How complex do you want your routine?
-                  </h2>
-                  <div className="space-y-3 mt-6">
-                    {complexities.map((c) => (
-                      <button
-                        key={c.value}
-                        onClick={() => setProfile({ routine_complexity: c.value })}
-                        className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all text-left cursor-pointer ${
-                          profile.routine_complexity === c.value
-                            ? "border-accent bg-accent/5"
-                            : "border-border hover:border-accent/30"
-                        }`}
-                      >
-                        <div>
-                          <p className="font-medium text-sm">{c.label}</p>
-                          <p className="text-xs text-muted font-[family-name:var(--font-body)]">{c.description}</p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
+                <h2 className="text-h2 font-light text-center mb-2 px-2">
+                  Budget & routine style
+                </h2>
+                <p className="text-sm text-muted text-center mb-6 font-[family-name:var(--font-body)]">
+                  Skip if you don&apos;t have a preference.
+                </p>
+
+                <p className="text-xs uppercase tracking-widest text-muted mb-2">Budget</p>
+                <div className="grid grid-cols-2 gap-2 mb-5">
+                  {budgets.map((b) => (
+                    <button
+                      key={b.value}
+                      type="button"
+                      onClick={() => setProfile({ budget: b.value })}
+                      className={`text-sm px-3 py-2 rounded-xl border transition-all ${
+                        profile.budget === b.value
+                          ? "border-accent bg-accent/5 text-accent-deep"
+                          : "border-border text-muted hover:border-accent/30"
+                      }`}
+                    >
+                      {b.label}
+                    </button>
+                  ))}
+                </div>
+
+                <p className="text-xs uppercase tracking-widest text-muted mb-2">Routine complexity</p>
+                <div className="space-y-2">
+                  {complexities.map((c) => (
+                    <button
+                      key={c.value}
+                      type="button"
+                      onClick={() => setProfile({ routine_complexity: c.value })}
+                      className={`w-full text-left p-3 rounded-xl border transition-all ${
+                        profile.routine_complexity === c.value
+                          ? "border-accent bg-accent/5"
+                          : "border-border hover:border-accent/30"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Clock size={14} />
+                        <span className="text-sm font-medium">{c.label}</span>
+                      </div>
+                      <p className="text-xs text-muted mt-0.5">{c.description}</p>
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
 
-            {/* Step 6: Hair (optional) */}
+            {/* Step 6: Hair */}
             {step === 6 && (
               <div>
                 <div className="flex justify-center mb-2">
-                  <Scissors size={20} className="text-[var(--rose)]" />
+                  <Scissors size={22} className="text-[var(--rose)]" />
                 </div>
                 <h2 className="text-h2 font-light text-center mb-2 px-2">
-                  Tell us about your hair
+                  Your hair
                 </h2>
                 <p className="text-sm text-muted text-center mb-6 font-[family-name:var(--font-body)]">
-                  Optional — tap <span className="font-medium">Skip</span> if you&apos;d rather not.
+                  Optional — only if you want hair recommendations.
                 </p>
 
                 <p className="text-xs uppercase tracking-widest text-muted mb-2">Hair type</p>
@@ -587,7 +770,7 @@ export default function OnboardPage() {
                   })}
                 </div>
 
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <label className="flex items-center gap-2 text-sm cursor-pointer mb-5">
                   <input
                     type="checkbox"
                     checked={profile.is_color_treated ?? false}
@@ -598,20 +781,31 @@ export default function OnboardPage() {
                   />
                   My hair is color-treated
                 </label>
+
+                <label className="block text-xs uppercase tracking-widest text-muted mb-2">
+                  Hair products you use
+                </label>
+                <textarea
+                  rows={2}
+                  value={hairProducts}
+                  onChange={(e) => setHairProducts(e.target.value)}
+                  placeholder="e.g. Olaplex No. 4, K18 leave-in"
+                  className="w-full rounded-lg border border-[var(--card-border)] bg-background/60 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent/40"
+                />
               </div>
             )}
 
-            {/* Step 7: Makeup (optional) */}
+            {/* Step 7: Makeup */}
             {step === 7 && (
               <div>
                 <div className="flex justify-center mb-2">
-                  <Palette size={20} className="text-[var(--gold)]" />
+                  <Palette size={22} className="text-[var(--gold)]" />
                 </div>
                 <h2 className="text-h2 font-light text-center mb-2 px-2">
-                  And your makeup?
+                  Your makeup
                 </h2>
                 <p className="text-sm text-muted text-center mb-6 font-[family-name:var(--font-body)]">
-                  Optional — we&apos;ll use this to suggest shades and finishes that flatter you.
+                  Optional — helps us match shades and finishes that flatter you.
                 </p>
 
                 <p className="text-xs uppercase tracking-widest text-muted mb-2">Undertone</p>
@@ -651,7 +845,7 @@ export default function OnboardPage() {
                   ))}
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4 mb-5">
                   <div>
                     <p className="text-xs uppercase tracking-widest text-muted mb-2">Coverage</p>
                     <div className="flex flex-wrap gap-2">
@@ -691,6 +885,17 @@ export default function OnboardPage() {
                     </div>
                   </div>
                 </div>
+
+                <label className="block text-xs uppercase tracking-widest text-muted mb-2">
+                  Makeup products you love
+                </label>
+                <textarea
+                  rows={2}
+                  value={makeupProducts}
+                  onChange={(e) => setMakeupProducts(e.target.value)}
+                  placeholder="e.g. Charlotte Tilbury Pillow Talk lipstick, Rare Beauty blush in Joy"
+                  className="w-full rounded-lg border border-[var(--card-border)] bg-background/60 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent/40"
+                />
               </div>
             )}
 
@@ -702,8 +907,8 @@ export default function OnboardPage() {
                   You&apos;re all set!
                 </h2>
                 <p className="text-sm text-muted mb-8 font-[family-name:var(--font-body)] max-w-sm mx-auto">
-                  suki. has everything it needs to start making smart
-                  recommendations. You can add products any time.
+                  suki. has enough to build your first routine. You can
+                  add more any time from your profile.
                 </p>
                 <GhostButton
                   variant="filled"
@@ -736,16 +941,10 @@ export default function OnboardPage() {
               Back
             </GhostButton>
             <div className="flex items-center gap-2">
-              {(step === 6 || step === 7) && (
-                <GhostButton variant="ghost" onClick={next}>
-                  Skip
-                </GhostButton>
-              )}
-              <GhostButton
-                variant="outline"
-                onClick={next}
-                disabled={!canAdvance()}
-              >
+              <GhostButton variant="ghost" onClick={next}>
+                Skip
+              </GhostButton>
+              <GhostButton variant="outline" onClick={next}>
                 Continue
                 <ChevronRight size={16} />
               </GhostButton>

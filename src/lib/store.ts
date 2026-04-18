@@ -130,6 +130,15 @@ export interface SkinProfile {
   undertone?: Undertone | null;
   // preference
   preference_mode?: PreferenceMode;
+  // basic
+  race?: string | null;
+  // onboarding extras
+  face_photo_url?: string | null;
+  face_photo_storage_path?: string | null;
+  initial_products_using?: string;
+  initial_products_bad?: string;
+  initial_hair_products?: string;
+  initial_makeup_products?: string;
 }
 
 export interface UserProduct {
@@ -211,6 +220,13 @@ const emptyProfile: SkinProfile = {
   finish_preference: null,
   undertone: null,
   preference_mode: "most_recommended",
+  race: null,
+  face_photo_url: null,
+  face_photo_storage_path: null,
+  initial_products_using: "",
+  initial_products_bad: "",
+  initial_hair_products: "",
+  initial_makeup_products: "",
 };
 
 export const useStore = create<AppState>((set) => ({

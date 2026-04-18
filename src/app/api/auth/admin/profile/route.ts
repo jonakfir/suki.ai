@@ -36,6 +36,13 @@ export async function POST(request: Request) {
       coverage_preference: body.coverage_preference ?? null,
       finish_preference: body.finish_preference ?? null,
       preference_mode: body.preference_mode ?? "most_recommended",
+      race: body.race ?? null,
+      face_photo_url: body.face_photo_url ?? null,
+      face_photo_storage_path: body.face_photo_storage_path ?? null,
+      initial_products_using: body.initial_products_using ?? null,
+      initial_products_bad: body.initial_products_bad ?? null,
+      initial_hair_products: body.initial_hair_products ?? null,
+      initial_makeup_products: body.initial_makeup_products ?? null,
     }, { onConflict: "user_id" })
     .select()
     .single();

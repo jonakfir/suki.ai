@@ -15,14 +15,16 @@ export async function GET(request: Request) {
       } = await supabase.auth.getUser();
 
       if (user) {
-        // Check if profile exists
+        // A profile row may exist (e.g. auto-created by a Supabase trigger)
+        // but still be empty. Require skin_type to be set before we consider
+        // onboarding complete; otherwise always walk the user through it.
         const { data: profile } = await supabase
           .from("users_profile")
-          .select("id")
+          .select("skin_type")
           .eq("user_id", user.id)
           .single();
 
-        if (profile) {
+        if (profile && profile.skin_type) {
           return NextResponse.redirect(`${origin}/today`);
         }
         return NextResponse.redirect(`${origin}/onboard`);
