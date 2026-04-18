@@ -85,7 +85,7 @@ export function AIChatWidget() {
       {/* Floating trigger */}
       <motion.button
         onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-5 right-5 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-accent to-lavender shadow-[0_10px_30px_rgba(30,91,184,0.45),0_0_40px_rgba(90,154,232,0.5)] flex items-center justify-center text-white"
+        className="fixed bottom-24 sm:bottom-5 right-5 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-accent to-lavender shadow-[0_10px_30px_rgba(30,91,184,0.45),0_0_40px_rgba(90,154,232,0.5)] flex items-center justify-center text-white"
         whileHover={{ scale: 1.08 }}
         whileTap={{ scale: 0.94 }}
         aria-label={open ? "Close chat" : "Open chat with suki."}

@@ -1,9 +1,33 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { Logo } from "./Logo";
 import { ShimmerLine } from "./SkincareElements";
 
+// App shell pages use the bottom tab nav on mobile — the marketing footer
+// would just get in the way. Keep the footer for public / marketing routes.
+const APP_PATHS = [
+  "/today",
+  "/skin",
+  "/hair",
+  "/makeup",
+  "/me",
+  "/compare",
+  "/progress",
+  "/products",
+  "/recommendations",
+  "/routine",
+  "/profile",
+];
+
+function isAppPath(pathname: string): boolean {
+  return APP_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
+}
+
 export function Footer() {
+  const pathname = usePathname();
+  if (isAppPath(pathname)) return null;
+
   return (
     <footer className="relative py-8 sm:py-12 mt-auto">
       <ShimmerLine />
