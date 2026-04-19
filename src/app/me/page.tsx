@@ -177,13 +177,27 @@ export default function MePage() {
 
   const setPreferenceMode = async (m: PreferenceMode) => {
     if (!userId) return;
+    const previous = profile.preference_mode ?? "most_recommended";
     setProfile({ preference_mode: m });
     setSavingPref(true);
     try {
-      await supabase
-        .from("users_profile")
-        .update({ preference_mode: m })
-        .eq("user_id", userId);
+      const res = await fetch("/api/profile/preference", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-requested-with": "suki-web",
+        },
+        body: JSON.stringify({ mode: m }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        console.error("preference_mode update failed:", body?.error);
+        // Roll back the optimistic UI change.
+        setProfile({ preference_mode: previous as PreferenceMode });
+      }
+    } catch (e) {
+      console.error("preference_mode request failed:", e);
+      setProfile({ preference_mode: previous as PreferenceMode });
     } finally {
       setSavingPref(false);
     }
@@ -419,15 +433,19 @@ export default function MePage() {
       </FadeIn>
 
       <FadeIn delay={0.2}>
-        <div className="mt-6 flex justify-center">
-          <div className="flex flex-col items-center gap-2">
+        <Card className="mt-4 p-5 space-y-3">
+          <h2 className="text-sm font-medium">Account</h2>
+          <div className="flex flex-col gap-2">
             <button
               type="button"
               onClick={handleSignOut}
               disabled={signingOut}
-              className="flex items-center gap-2 text-sm text-muted hover:text-foreground px-4 py-2 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center justify-between w-full text-sm text-foreground hover:text-accent-deep px-3 py-2.5 rounded-lg border border-[var(--card-border)] bg-card/60 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <LogOut size={14} /> {signingOut ? "Signing out…" : "Sign out"}
+              <span className="flex items-center gap-2">
+                <LogOut size={15} /> {signingOut ? "Signing out…" : "Sign out"}
+              </span>
+              <ArrowRight size={14} className="text-muted" />
             </button>
             <button
               type="button"
@@ -436,11 +454,20 @@ export default function MePage() {
                 setDeleteError(null);
                 setDeleteOpen(true);
               }}
-              className="flex items-center gap-2 text-xs text-muted/70 hover:text-red-500 px-4 py-1 rounded-full"
+              className="flex items-center justify-between w-full text-sm text-red-600 hover:text-red-700 px-3 py-2.5 rounded-lg border border-red-200 bg-red-50/50 hover:bg-red-50"
             >
-              <Trash2 size={12} /> Delete my account
+              <span className="flex items-center gap-2">
+                <Trash2 size={15} /> Delete my account
+              </span>
+              <ArrowRight size={14} />
             </button>
           </div>
+          <p className="text-xs text-muted">
+            Deleting is permanent — your profile, products, routine,
+            recommendations, and progress photos are removed.
+          </p>
+        </Card>
+        <div className="mt-4 flex justify-center">
 
           <Modal
             open={deleteOpen}
