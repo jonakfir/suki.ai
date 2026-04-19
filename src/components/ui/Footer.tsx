@@ -31,17 +31,20 @@ export function Footer() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const override = new URLSearchParams(window.location.search).get("native");
-    let next: boolean;
-    if (override === "1") {
-      next = true;
-    } else if (override === "0") {
-      next = false;
-    } else {
-      const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
-      next = !!cap?.isNativePlatform?.();
-    }
-    setHideForNative(next);
+    const id = setTimeout(() => {
+      const override = new URLSearchParams(window.location.search).get("native");
+      let next: boolean;
+      if (override === "1") {
+        next = true;
+      } else if (override === "0") {
+        next = false;
+      } else {
+        const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
+        next = !!cap?.isNativePlatform?.();
+      }
+      setHideForNative(next);
+    }, 0);
+    return () => clearTimeout(id);
   }, []);
 
   if (isAppPath(pathname)) return null;

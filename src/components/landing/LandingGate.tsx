@@ -22,19 +22,22 @@ export function LandingGate() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    // Preview override: ?native=1 forces the native layout in any browser,
-    // ?native=0 forces the web layout. Useful for dev + screen recordings.
-    const override = new URLSearchParams(window.location.search).get("native");
-    let next: "native" | "web";
-    if (override === "1") {
-      next = "native";
-    } else if (override === "0") {
-      next = "web";
-    } else {
-      const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
-      next = cap?.isNativePlatform?.() ? "native" : "web";
-    }
-    setMode(next);
+    // Defer one tick so the state write lands in its own render pass
+    // (satisfies the no-cascading-renders lint rule on Vercel).
+    const id = setTimeout(() => {
+      const override = new URLSearchParams(window.location.search).get("native");
+      let next: "native" | "web";
+      if (override === "1") {
+        next = "native";
+      } else if (override === "0") {
+        next = "web";
+      } else {
+        const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
+        next = cap?.isNativePlatform?.() ? "native" : "web";
+      }
+      setMode(next);
+    }, 0);
+    return () => clearTimeout(id);
   }, []);
 
   // Avoid a flash of the wrong variant before detection completes.
