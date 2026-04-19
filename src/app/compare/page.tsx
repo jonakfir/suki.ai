@@ -143,19 +143,22 @@ export default function ComparePage() {
       </FadeIn>
 
       <FadeIn delay={0.1}>
-        <Card className="mt-6 p-5 space-y-6">
-          <label className="block">
-            <span className="text-sm text-foreground">Product name or description</span>
+        <Card className="mt-6 p-5">
+          <div className="mb-6">
+            <label htmlFor="compare-text" className="block text-sm text-foreground mb-2">
+              Product name or description
+            </label>
             <input
+              id="compare-text"
               type="text"
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="e.g. La Roche-Posay Toleriane Double Repair Moisturizer"
-              className="mt-2 w-full rounded-lg border border-[var(--card-border)] bg-background/60 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-accent/40"
+              className="w-full rounded-lg border border-[var(--card-border)] bg-background/60 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-accent/40"
             />
-          </label>
+          </div>
 
-          <div className="flex items-center gap-2 pt-1">
+          <div className="mb-6 flex items-center gap-2 flex-wrap">
             <input
               ref={fileRef}
               type="file"
@@ -187,7 +190,7 @@ export default function ComparePage() {
             )}
           </div>
 
-          <div className="flex items-center gap-3 pt-3">
+          <div className="flex items-center gap-3">
             <GhostButton
               variant="filled"
               size="md"
