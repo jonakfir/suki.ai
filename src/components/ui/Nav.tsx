@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Logo } from "./Logo";
@@ -25,6 +26,16 @@ export function Nav() {
   const isLanding = pathname === "/";
   const isAuth = pathname.startsWith("/auth");
   const isOnboarding = pathname.startsWith("/onboard");
+  const [isNativeApp, setIsNativeApp] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
+    setIsNativeApp(!!cap?.isNativePlatform?.());
+  }, []);
+
+  // Native landing ships its own hero/CTAs full-bleed — don't draw a nav over it.
+  if (isNativeApp && isLanding) return null;
 
   return (
     <nav className="sticky top-0 z-50 glass">
