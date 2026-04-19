@@ -110,7 +110,7 @@ export function AIChatWidget() {
       {/* Floating trigger */}
       <motion.button
         onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-24 sm:bottom-5 right-5 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-accent to-lavender shadow-[0_10px_30px_rgba(30,91,184,0.45),0_0_40px_rgba(90,154,232,0.5)] flex items-center justify-center text-white"
+        className="fixed bottom-24 sm:bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-accent to-lavender shadow-[0_10px_30px_rgba(30,91,184,0.45),0_0_40px_rgba(90,154,232,0.5)] flex items-center justify-center text-white"
         whileHover={{ scale: 1.08 }}
         whileTap={{ scale: 0.94 }}
         aria-label={open ? "Close chat" : "Open chat with suki."}
@@ -138,7 +138,7 @@ export function AIChatWidget() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed bottom-24 right-4 sm:right-5 z-50 w-[calc(100vw-2rem)] sm:w-[22rem] max-h-[min(32rem,calc(100vh-8rem))] rounded-3xl overflow-hidden border border-white/40 bg-card/95 backdrop-blur-xl shadow-[0_30px_80px_-20px_rgba(30,91,184,0.45)] flex flex-col"
+            className="fixed bottom-24 right-4 sm:right-5 z-40 w-[calc(100vw-2rem)] sm:w-[22rem] max-h-[min(32rem,calc(100vh-8rem))] rounded-3xl overflow-hidden border border-white/40 bg-card/95 backdrop-blur-xl shadow-[0_30px_80px_-20px_rgba(30,91,184,0.45)] flex flex-col"
           >
             <div className="px-5 py-4 border-b border-card-border/50 flex items-center gap-3 bg-gradient-to-r from-accent/10 via-transparent to-lavender/10">
               <div className="w-9 h-9 rounded-full bg-gradient-to-br from-accent to-lavender flex items-center justify-center shadow-[0_0_20px_rgba(90,154,232,0.5)]">

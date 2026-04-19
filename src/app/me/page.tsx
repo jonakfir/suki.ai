@@ -476,44 +476,53 @@ export default function MePage() {
             }}
             title="Delete your account?"
           >
-            <div className="space-y-3 text-sm">
+            <form
+              className="space-y-3 text-sm"
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleDelete();
+              }}
+            >
               <p>
                 This removes your profile, products, routine, recommendations,
-                and progress photos. It can&apos;t be undone.
+                and progress photos. Can&apos;t be undone.
               </p>
-              <p className="text-muted text-xs">
-                Type <strong>DELETE</strong> to confirm.
-              </p>
+              <label className="block text-muted text-xs">
+                Type <strong>DELETE</strong> to confirm
+              </label>
               <input
                 type="text"
                 value={deleteConfirm}
                 onChange={(e) => setDeleteConfirm(e.target.value)}
                 placeholder="DELETE"
-                className="w-full rounded-lg border border-[var(--card-border)] bg-background/60 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-400/40"
+                autoCapitalize="characters"
+                autoCorrect="off"
+                autoComplete="off"
+                className="w-full rounded-lg border border-[var(--card-border)] bg-background/60 px-3 py-3 text-base outline-none focus:ring-2 focus:ring-red-400/40"
                 autoFocus
               />
+              {/* Primary destructive action sits RIGHT under the input so
+                  the iOS keyboard never covers it (keyboard grows from bottom;
+                  this stays in the scroll-into-view region). */}
+              <button
+                type="submit"
+                disabled={deleting || deleteConfirm !== "DELETE"}
+                className="w-full py-3 rounded-full bg-red-500 text-white text-base font-semibold hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deleting ? "Deleting…" : "Delete account"}
+              </button>
               {deleteError && (
-                <p className="text-xs text-red-500 break-all">{deleteError}</p>
+                <p className="text-xs text-red-500 break-all text-center">{deleteError}</p>
               )}
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setDeleteOpen(false)}
-                  disabled={deleting}
-                  className="text-sm text-muted hover:text-foreground px-3 py-1.5 rounded-full"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  disabled={deleting || deleteConfirm !== "DELETE"}
-                  className="text-sm bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-1.5 rounded-full"
-                >
-                  {deleting ? "Deleting…" : "Delete account"}
-                </button>
-              </div>
-            </div>
+              <button
+                type="button"
+                onClick={() => setDeleteOpen(false)}
+                disabled={deleting}
+                className="w-full text-sm text-muted hover:text-foreground py-2"
+              >
+                Cancel
+              </button>
+            </form>
           </Modal>
         </div>
       </FadeIn>
