@@ -25,10 +25,16 @@ export function LandingGate() {
     // Preview override: ?native=1 forces the native layout in any browser,
     // ?native=0 forces the web layout. Useful for dev + screen recordings.
     const override = new URLSearchParams(window.location.search).get("native");
-    if (override === "1") return setMode("native");
-    if (override === "0") return setMode("web");
-    const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
-    setMode(cap?.isNativePlatform?.() ? "native" : "web");
+    let next: "native" | "web";
+    if (override === "1") {
+      next = "native";
+    } else if (override === "0") {
+      next = "web";
+    } else {
+      const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
+      next = cap?.isNativePlatform?.() ? "native" : "web";
+    }
+    setMode(next);
   }, []);
 
   // Avoid a flash of the wrong variant before detection completes.

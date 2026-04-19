@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Logo } from "./Logo";
 import { ShimmerLine } from "./SkincareElements";
@@ -26,7 +27,26 @@ function isAppPath(pathname: string): boolean {
 
 export function Footer() {
   const pathname = usePathname();
+  const [hideForNative, setHideForNative] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const override = new URLSearchParams(window.location.search).get("native");
+    let next: boolean;
+    if (override === "1") {
+      next = true;
+    } else if (override === "0") {
+      next = false;
+    } else {
+      const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
+      next = !!cap?.isNativePlatform?.();
+    }
+    setHideForNative(next);
+  }, []);
+
   if (isAppPath(pathname)) return null;
+  // Native app landing ships its own full-bleed layout — no marketing footer.
+  if (hideForNative && pathname === "/") return null;
 
   return (
     <footer className="relative py-8 sm:py-12 mt-auto">
