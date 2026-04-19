@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { isAdminSession, ADMIN_USER_ID } from "@/lib/admin";
 import { useStore } from "@/lib/store";
@@ -261,7 +261,8 @@ export default function OnboardPage() {
         budget: profile.budget,
         routine_complexity: profile.routine_complexity,
         race: profile.race ?? null,
-        face_photo_url: facePhotoUrl,
+        // Store only the storage path — URL is re-signed on each read.
+        face_photo_url: null,
         face_photo_storage_path: facePhotoPath,
         initial_products_using: productsUsing.trim() || null,
         initial_products_bad: productsBad.trim() || null,
@@ -322,11 +323,9 @@ export default function OnboardPage() {
     }
   };
 
-  const slideVariants = {
-    enter: { opacity: 0, x: 30 },
-    center: { opacity: 1, x: 0 },
-    exit: { opacity: 0, x: -30 },
-  };
+  // AnimatePresence caused React 19 + framer-motion 12 to hold the old step's
+  // JSX in place after the exit animation instead of mounting the new step.
+  // Keep a simple fade on the step container instead.
 
   return (
     <div className="min-h-[calc(100svh-7rem)] flex flex-col items-center px-4 sm:px-6 py-8 sm:py-12">
@@ -346,15 +345,12 @@ export default function OnboardPage() {
       </div>
 
       <div className="w-full max-w-lg pb-32 sm:pb-0">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={step}
-            variants={slideVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{ duration: 0.25 }}
-          >
+        <motion.div
+          key={step}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+        >
             {/* Step 1: Basic info (age + race) */}
             {step === 1 && (
               <div>
@@ -925,8 +921,7 @@ export default function OnboardPage() {
                 )}
               </div>
             )}
-          </motion.div>
-        </AnimatePresence>
+        </motion.div>
 
         {/* Navigation */}
         {step < TOTAL_STEPS && (
