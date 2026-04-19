@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { isAdminSession, ADMIN_USER_ID } from "@/lib/admin";
 import { useStore } from "@/lib/store";
@@ -36,10 +36,13 @@ import {
   Scissors,
   Camera,
   Loader2,
+  Pencil,
+  Check,
+  X,
   User as UserIcon,
 } from "lucide-react";
 
-const TOTAL_STEPS = 8;
+const TOTAL_STEPS = 9;
 
 const skinTypes: { value: SkinType; label: string; icon: typeof Droplets; description: string }[] = [
   { value: "oily",        label: "Oily",        icon: Droplets,    description: "Shiny by midday, visible pores, prone to breakouts" },
@@ -164,6 +167,28 @@ export default function OnboardPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Step 2 — product scan state
+  interface CatalogProduct { name: string; brand: string; category: string; notes: string; }
+  interface Catalog { skincare: CatalogProduct[]; hair: CatalogProduct[]; makeup: CatalogProduct[]; }
+  interface SearchSuggestion { product_name: string; brand: string; category: string; description: string; }
+  type CatalogBucket = "skincare" | "hair" | "makeup";
+  const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [localCatalog, setLocalCatalog] = useState<Catalog | null>(null);
+  const [scanLoading, setScanLoading] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [savingProducts, setSavingProducts] = useState(false);
+  const [productsSaved, setProductsSaved] = useState(false);
+  const productScanRef = useRef<HTMLInputElement>(null);
+
+  // Step 2 — inline product edit state
+  const [editKey, setEditKey] = useState<{ bucket: CatalogBucket; index: number } | null>(null);
+  const [editQuery, setEditQuery] = useState("");
+  const [editName, setEditName] = useState("");
+  const [editBrand, setEditBrand] = useState("");
+  const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
   const supabase = createClient();
   const resetUserData = useStore((s) => s.resetUserData);
@@ -173,6 +198,72 @@ export default function OnboardPage() {
     setAllergies([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (catalog) setLocalCatalog({ skincare: [...catalog.skincare], hair: [...catalog.hair], makeup: [...catalog.makeup] });
+  }, [catalog]);
+
+  const runSearch = async (q: string) => {
+    if (q.trim().length < 2) { setSuggestions([]); return; }
+    setSuggestionsLoading(true);
+    try {
+      const res = await fetch("/api/products/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: q.trim() }),
+      });
+      if (!res.ok) { setSuggestions([]); return; }
+      const data = await res.json();
+      setSuggestions(((data.products ?? []) as SearchSuggestion[]).slice(0, 5));
+    } catch {
+      setSuggestions([]);
+    } finally {
+      setSuggestionsLoading(false);
+    }
+  };
+
+  const handleEditQuery = (q: string) => {
+    setEditQuery(q);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => runSearch(q), 400);
+  };
+
+  const startProductEdit = (bucket: CatalogBucket, index: number) => {
+    const p = localCatalog![bucket][index];
+    const q = [p.name, p.brand].filter(Boolean).join(" ");
+    setEditKey({ bucket, index });
+    setEditQuery(q);
+    setEditName(p.name);
+    setEditBrand(p.brand);
+    setSuggestions([]);
+    if (q.length >= 2) runSearch(q);
+  };
+
+  const cancelProductEdit = () => {
+    setEditKey(null);
+    setSuggestions([]);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+  };
+
+  const applyProductSuggestion = (s: SearchSuggestion) => {
+    setEditName(s.product_name);
+    setEditBrand(s.brand);
+    setSuggestions([]);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+  };
+
+  const confirmProductEdit = () => {
+    if (!editKey || !localCatalog) return;
+    const { bucket, index } = editKey;
+    setLocalCatalog((prev) => {
+      if (!prev) return prev;
+      const updated = [...prev[bucket]];
+      updated[index] = { ...updated[index], name: editName.trim() || updated[index].name, brand: editBrand.trim() || updated[index].brand };
+      return { ...prev, [bucket]: updated };
+    });
+    setEditKey(null);
+    setSuggestions([]);
+  };
 
   const next = () => setStep((s) => Math.min(s + 1, TOTAL_STEPS));
   const prev = () => setStep((s) => Math.max(s - 1, 1));
@@ -243,6 +334,85 @@ export default function OnboardPage() {
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  const handleProductScanFile = async (file: File | null) => {
+    if (!file || !file.type.startsWith("image/")) return;
+    setScanError(null);
+    setScanLoading(true);
+    setCatalog(null);
+    setProductsSaved(false);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const objectUrl = URL.createObjectURL(file);
+        const img = new window.Image();
+        img.onload = () => {
+          URL.revokeObjectURL(objectUrl);
+          const MAX = 800;
+          let { width, height } = img;
+          if (width >= height) {
+            if (width > MAX) { height = Math.round((height * MAX) / width); width = MAX; }
+          } else {
+            if (height > MAX) { width = Math.round((width * MAX) / height); height = MAX; }
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          canvas.getContext("2d")!.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.6);
+          const b64 = dataUrl.split(",")[1];
+          console.log("[onboard scan] compressed base64 length:", b64.length, "bytes (raw ~" + Math.round(b64.length * 0.75 / 1024) + " KB)");
+          resolve(b64);
+        };
+        img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error("Failed to load image")); };
+        img.src = objectUrl;
+      });
+      const res = await fetch("/api/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64: base64, mediaType: "image/jpeg", mode: "catalog" }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setScanError(data.error || "Couldn't identify products. Try another photo.");
+        return;
+      }
+      setCatalog(data.catalog);
+    } catch {
+      setScanError("Network error. Please try again.");
+    } finally {
+      setScanLoading(false);
+      if (productScanRef.current) productScanRef.current.value = "";
+    }
+  };
+
+  const handleSaveCatalog = async () => {
+    if (!localCatalog) return;
+    setSavingProducts(true);
+    try {
+      const products = [
+        ...localCatalog.skincare.map((p) => ({ ...p, domain: "skincare" as const })),
+        ...localCatalog.hair.map((p) => ({ ...p, domain: "haircare" as const })),
+        ...localCatalog.makeup.map((p) => ({ ...p, domain: "makeup" as const })),
+      ];
+      if (products.length === 0) { next(); return; }
+      const res = await fetch("/api/products/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ products }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setScanError(body.error || "Failed to save products.");
+        return;
+      }
+      setProductsSaved(true);
+      setTimeout(() => next(), 800);
+    } catch {
+      setScanError("Network error saving products.");
+    } finally {
+      setSavingProducts(false);
     }
   };
 
@@ -402,8 +572,183 @@ export default function OnboardPage() {
               </div>
             )}
 
-            {/* Step 2: Skin photo */}
+            {/* Step 2: Product shelf scan */}
             {step === 2 && (
+              <div>
+                <div className="flex justify-center mb-2">
+                  <Sparkles size={22} className="text-accent-deep" />
+                </div>
+                <h2 className="text-h2 font-light text-center mb-2 px-2">
+                  Scan your products
+                </h2>
+                <p className="text-sm text-muted text-center mb-6 font-[family-name:var(--font-body)]">
+                  Upload a photo of your beauty shelf. Suki will identify and sort everything for you.
+                </p>
+
+                <input
+                  ref={productScanRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleProductScanFile(e.target.files?.[0] ?? null)}
+                />
+
+                {!catalog && !scanLoading && (
+                  <button
+                    type="button"
+                    onClick={() => productScanRef.current?.click()}
+                    className="w-full aspect-[4/3] max-w-xs mx-auto flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[var(--card-border)] text-muted hover:border-accent/40 hover:text-accent-deep transition-colors"
+                  >
+                    <Camera size={28} />
+                    <span className="text-sm">Upload a photo of your shelf</span>
+                    <span className="text-xs opacity-60">JPG, PNG, WebP</span>
+                  </button>
+                )}
+
+                {scanLoading && (
+                  <div className="flex flex-col items-center gap-3 py-10">
+                    <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}>
+                      <Sparkles size={28} className="text-accent" />
+                    </motion.div>
+                    <p className="text-sm text-muted">Identifying your products…</p>
+                  </div>
+                )}
+
+                {scanError && (
+                  <p className="mt-3 text-xs text-red-500 text-center">{scanError}</p>
+                )}
+
+                {localCatalog && (
+                  <div className="space-y-4">
+                    {(["skincare", "hair", "makeup"] as const).map((bucket) => {
+                      const items = localCatalog[bucket];
+                      if (!items.length) return null;
+                      const labels: Record<string, string> = { skincare: "Skincare", hair: "Hair care", makeup: "Makeup" };
+                      return (
+                        <div key={bucket}>
+                          <p className="text-xs uppercase tracking-widest text-muted mb-2">{labels[bucket]} · {items.length} found</p>
+                          <div className="space-y-1.5">
+                            {items.map((p, i) => {
+                              const isEditing = editKey?.bucket === bucket && editKey?.index === i;
+                              return isEditing ? (
+                                <motion.div
+                                  key={i}
+                                  initial={{ opacity: 0, y: 4 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  className="p-3 rounded-xl bg-background/40 border border-accent/30 space-y-2"
+                                >
+                                  {/* Search query input */}
+                                  <div className="relative">
+                                    <input
+                                      autoFocus
+                                      type="text"
+                                      value={editQuery}
+                                      onChange={(e) => handleEditQuery(e.target.value)}
+                                      placeholder="Search products…"
+                                      className="w-full text-sm rounded-lg border border-[var(--card-border)] bg-background/60 px-3 py-1.5 pr-8 outline-none focus:ring-2 focus:ring-accent/40"
+                                    />
+                                    {suggestionsLoading && (
+                                      <Loader2 size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted animate-spin" />
+                                    )}
+                                  </div>
+                                  {/* Suggestions dropdown */}
+                                  <AnimatePresence>
+                                    {suggestions.length > 0 && (
+                                      <motion.div
+                                        initial={{ opacity: 0, y: -4 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -4 }}
+                                        className="rounded-lg border border-[var(--card-border)]/60 bg-background overflow-hidden shadow-md"
+                                      >
+                                        {suggestions.map((s, j) => (
+                                          <button
+                                            key={j}
+                                            type="button"
+                                            onClick={() => applyProductSuggestion(s)}
+                                            className="w-full text-left px-3 py-2 hover:bg-accent/5 transition-colors border-b border-[var(--card-border)]/30 last:border-0"
+                                          >
+                                            <p className="text-xs font-medium text-accent-ink truncate">{s.product_name}</p>
+                                            <p className="text-[10px] text-muted truncate">{s.brand} · {s.category}</p>
+                                          </button>
+                                        ))}
+                                      </motion.div>
+                                    )}
+                                  </AnimatePresence>
+                                  {/* Manual name / brand fields */}
+                                  <input
+                                    type="text"
+                                    value={editName}
+                                    onChange={(e) => setEditName(e.target.value)}
+                                    placeholder="Product name"
+                                    className="w-full text-sm rounded-lg border border-[var(--card-border)] bg-background/60 px-3 py-1.5 outline-none focus:ring-2 focus:ring-accent/40"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={editBrand}
+                                    onChange={(e) => setEditBrand(e.target.value)}
+                                    placeholder="Brand"
+                                    className="w-full text-sm rounded-lg border border-[var(--card-border)] bg-background/60 px-3 py-1.5 outline-none focus:ring-2 focus:ring-accent/40"
+                                  />
+                                  <div className="flex gap-2 pt-0.5">
+                                    <button
+                                      type="button"
+                                      onClick={confirmProductEdit}
+                                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-accent text-white text-xs font-medium hover:bg-accent/90 transition-colors"
+                                    >
+                                      <Check size={12} />
+                                      Confirm
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={cancelProductEdit}
+                                      className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-[var(--card-border)] text-xs text-muted hover:text-foreground hover:border-foreground/40 transition-colors"
+                                    >
+                                      <X size={12} />
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </motion.div>
+                              ) : (
+                                <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-background/40 border border-[var(--card-border)]/40 relative">
+                                  <span className="text-[10px] font-semibold text-accent uppercase w-8 shrink-0 bg-accent/10 rounded px-1 py-0.5 text-center">{p.category.slice(0, 3)}</span>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-medium text-accent-ink truncate pr-6">{p.name}</p>
+                                    <p className="text-xs text-muted truncate">{p.brand}</p>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => startProductEdit(bucket, i)}
+                                    aria-label="Edit product"
+                                    className="absolute top-1/2 -translate-y-1/2 right-2.5 w-6 h-6 rounded-full flex items-center justify-center text-muted opacity-60 hover:opacity-100 hover:text-accent hover:bg-accent/10 transition-all"
+                                  >
+                                    <Pencil size={11} />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div className="flex justify-center gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => { setCatalog(null); setScanError(null); }}
+                        className="text-xs text-muted hover:text-foreground underline"
+                      >
+                        Try another photo
+                      </button>
+                    </div>
+                    {productsSaved && (
+                      <p className="text-sm text-accent-deep text-center font-medium">Products saved!</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Step 3: Skin photo */}
+            {step === 3 && (
               <div>
                 <div className="flex justify-center mb-2">
                   <Camera size={22} className="text-accent-deep" />
@@ -468,8 +813,8 @@ export default function OnboardPage() {
               </div>
             )}
 
-            {/* Step 3: Skin type + tone + concerns */}
-            {step === 3 && (
+            {/* Step 4: Skin type + tone + concerns */}
+            {step === 4 && (
               <div>
                 <div className="flex justify-center mb-2">
                   <Droplets size={22} className="text-accent-deep" />
@@ -544,8 +889,8 @@ export default function OnboardPage() {
               </div>
             )}
 
-            {/* Step 4: Allergies + current skincare products */}
-            {step === 4 && (
+            {/* Step 5: Allergies + current skincare products */}
+            {step === 5 && (
               <div>
                 <div className="flex justify-center mb-2">
                   <ShieldAlert size={22} className="text-accent-deep" />
@@ -633,8 +978,8 @@ export default function OnboardPage() {
               </div>
             )}
 
-            {/* Step 5: Budget + complexity */}
-            {step === 5 && (
+            {/* Step 6: Budget + complexity */}
+            {step === 6 && (
               <div>
                 <div className="flex justify-center mb-2">
                   <Wallet size={22} className="text-accent-deep" />
@@ -688,8 +1033,8 @@ export default function OnboardPage() {
               </div>
             )}
 
-            {/* Step 6: Hair */}
-            {step === 6 && (
+            {/* Step 7: Hair */}
+            {step === 7 && (
               <div>
                 <div className="flex justify-center mb-2">
                   <Scissors size={22} className="text-[var(--rose)]" />
@@ -791,8 +1136,8 @@ export default function OnboardPage() {
               </div>
             )}
 
-            {/* Step 7: Makeup */}
-            {step === 7 && (
+            {/* Step 8: Makeup */}
+            {step === 8 && (
               <div>
                 <div className="flex justify-center mb-2">
                   <Palette size={22} className="text-[var(--gold)]" />
@@ -895,8 +1240,8 @@ export default function OnboardPage() {
               </div>
             )}
 
-            {/* Step 8: All set */}
-            {step === 8 && (
+            {/* Step 9: All set */}
+            {step === 9 && (
               <div className="text-center">
                 <Sparkles size={32} className="text-accent mx-auto mb-4" />
                 <h2 className="text-h2 font-light mb-2 px-2">
@@ -939,10 +1284,32 @@ export default function OnboardPage() {
               <GhostButton variant="ghost" onClick={next}>
                 Skip
               </GhostButton>
-              <GhostButton variant="outline" onClick={next}>
-                Continue
-                <ChevronRight size={16} />
-              </GhostButton>
+              {step === 2 && localCatalog && !productsSaved ? (
+                <GhostButton
+                  variant="outline"
+                  onClick={handleSaveCatalog}
+                  disabled={savingProducts}
+                >
+                  {savingProducts ? (
+                    <>
+                      <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}>
+                        <Loader2 size={14} />
+                      </motion.div>
+                      Saving…
+                    </>
+                  ) : (
+                    <>
+                      Save & Continue
+                      <ChevronRight size={16} />
+                    </>
+                  )}
+                </GhostButton>
+              ) : (
+                <GhostButton variant="outline" onClick={next}>
+                  Continue
+                  <ChevronRight size={16} />
+                </GhostButton>
+              )}
             </div>
           </div>
         )}

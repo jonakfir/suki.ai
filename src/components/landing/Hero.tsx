@@ -3,56 +3,9 @@
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
 import { GhostButton } from "@/components/ui/GhostButton";
 import { AmbientOrbs, FloatingPetals, ShimmerLine } from "@/components/ui/SkincareElements";
 import { Sparkles } from "lucide-react";
-
-const ROTATING_WORDS = ["glow", "clarity", "balance", "radiance", "confidence"];
-
-function RotatingWord() {
-  const [i, setI] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setI((v) => (v + 1) % ROTATING_WORDS.length), 2200);
-    return () => clearInterval(t);
-  }, []);
-  return (
-    <span className="relative inline-block align-baseline">
-      <motion.span
-        key={i}
-        initial={{ y: "0.6em", opacity: 0, filter: "blur(8px)" }}
-        animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
-        exit={{ y: "-0.6em", opacity: 0, filter: "blur(8px)" }}
-        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        className="inline-block gradient-text font-[family-name:var(--font-script)]"
-      >
-        {ROTATING_WORDS[i]}
-      </motion.span>
-    </span>
-  );
-}
-
-function SplitLetters({ text, delay = 0 }: { text: string; delay?: number }) {
-  return (
-    <span className="inline-block">
-      {text.split("").map((ch, i) => (
-        <motion.span
-          key={i}
-          initial={{ y: "1em", opacity: 0, filter: "blur(10px)" }}
-          animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
-          transition={{
-            duration: 0.8,
-            delay: delay + i * 0.035,
-            ease: [0.22, 1, 0.36, 1],
-          }}
-          className="inline-block whitespace-pre"
-        >
-          {ch}
-        </motion.span>
-      ))}
-    </span>
-  );
-}
 
 export function Hero() {
   return (
@@ -81,11 +34,22 @@ export function Hero() {
           </motion.div>
 
           <h1 className="mb-3 font-[family-name:var(--font-script)] text-display sm:text-display-xl font-bold text-accent-ink leading-[1.05]">
-            <SplitLetters text="Skincare that" delay={0.15} />
-            <br />
-            <SplitLetters text="unlocks your " delay={0.6} />
-            <RotatingWord />
-            <SplitLetters text="." delay={1.0} />
+            <motion.span
+              className="block"
+              initial={{ y: "1em", opacity: 0, filter: "blur(10px)" }}
+              animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
+              transition={{ duration: 0.8, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
+            >
+              Suki, your personal
+            </motion.span>
+            <motion.span
+              className="block"
+              initial={{ y: "1em", opacity: 0, filter: "blur(10px)" }}
+              animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
+              transition={{ duration: 0.8, delay: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            >
+              skincare expert.
+            </motion.span>
           </h1>
 
           <ShimmerLine className="max-w-md mx-auto md:mx-0 mb-6 sm:mb-8" />
@@ -96,12 +60,7 @@ export function Hero() {
             transition={{ duration: 0.8, delay: 1.1 }}
             className="text-sm sm:text-lg text-muted max-w-xl mx-auto md:mx-0 mb-8 sm:mb-10 leading-relaxed"
           >
-            Build your skin profile. Log what works and what doesn&apos;t. Get
-            personalized recommendations tailored to{" "}
-            <span className="font-[family-name:var(--font-script)] text-accent text-lg sm:text-xl font-semibold">
-              your unique skin
-            </span>{" "}
-            — powered by AI that understands ingredients, not hype.
+            Elevate your skincare routine. Find cheaper or more efficient alternatives. Understand your products.
           </motion.p>
 
           <motion.div
