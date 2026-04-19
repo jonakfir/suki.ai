@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Send, X } from "lucide-react";
 
@@ -12,7 +13,28 @@ const GREETING: Msg = {
     "Hi — I'm suki. Tell me about your skin, or ask me anything about a product or ingredient.",
 };
 
+// Only show the AI chat on authenticated in-app pages. Public / onboarding
+// / auth pages stay clean.
+const APP_PATHS = [
+  "/today",
+  "/skin",
+  "/hair",
+  "/makeup",
+  "/me",
+  "/compare",
+  "/progress",
+  "/products",
+  "/recommendations",
+  "/routine",
+  "/profile",
+];
+
+function isAppPath(pathname: string): boolean {
+  return APP_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
+}
+
 export function AIChatWidget() {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([GREETING]);
   const [input, setInput] = useState("");
@@ -79,6 +101,9 @@ export function AIChatWidget() {
       setLoading(false);
     }
   }
+
+  // Hide the chat on public / auth / onboarding — AI is only for signed-in users.
+  if (!isAppPath(pathname)) return null;
 
   return (
     <>
