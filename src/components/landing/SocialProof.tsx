@@ -1,118 +1,57 @@
 "use client";
 
 import { FadeIn, StaggerChildren, StaggerItem } from "@/components/ui/FadeIn";
-import { AmbientOrbs, ShimmerLine } from "@/components/ui/SkincareElements";
-import { AnimatedCounter } from "@/components/ui/AnimatedCounter";
-import { motion } from "framer-motion";
-import { Star } from "lucide-react";
+import { Quote } from "lucide-react";
 
 const testimonials = [
   {
-    quote: "Finally, recommendations that actually work for my sensitive skin. No more guessing.",
-    name: "Aria M.",
-    skin: "Sensitive, dry",
-    avatar: "AM",
+    quote: "I had 12 products and no idea what to do with them. Suki sorted everything in 30 seconds.",
+    name: "Maya",
+    age: 24,
   },
   {
-    quote: "I went from a 12-step routine to 5 products that do more. suki. is magic.",
-    name: "Priya K.",
-    skin: "Combination",
-    avatar: "PK",
+    quote: "Finally understood why my routine wasn't working. The order was completely wrong.",
+    name: "Sofia",
+    age: 31,
   },
   {
-    quote: "It remembered my niacinamide sensitivity and never recommended it again. Love that.",
-    name: "Sofia L.",
-    skin: "Oily, acne-prone",
-    avatar: "SL",
+    quote: "I'm a total beginner and it felt like having a dermatologist in my pocket.",
+    name: "Jess",
+    age: 19,
   },
-];
-
-const stats = [
-  { value: 10, suffix: "K+", label: "Skin profiles" },
-  { value: 50, suffix: "K+", label: "Products logged" },
-  { value: 98, suffix: "%", label: "Recommendation accuracy" },
-  { value: 4.9, suffix: "★", label: "Average rating" },
 ];
 
 export function SocialProof() {
   return (
-    <section className="relative py-16 sm:py-28 px-4 sm:px-6 overflow-hidden bg-background/50 backdrop-blur-[2px]">
-      <AmbientOrbs variant="rose" />
-
+    <section className="relative py-20 sm:py-28 px-4 sm:px-8 bg-[#f8f8f6] overflow-hidden">
       <div className="relative z-10 max-w-5xl mx-auto">
-        <FadeIn className="text-center mb-4">
-          <span className="font-[family-name:var(--font-script)] text-gold text-lg">
-            Loved by skin obsessives
-          </span>
-        </FadeIn>
-        <FadeIn className="text-center mb-10 sm:mb-16">
-          <h2 className="text-2xl sm:text-4xl md:text-5xl font-medium italic px-2">
-            Real skin, real{" "}
-            <span className="font-[family-name:var(--font-script)] gradient-text-gold text-3xl sm:text-6xl">
-              results.
-            </span>
+        <FadeIn className="text-center mb-14 sm:mb-16">
+          <p className="text-xs uppercase tracking-[0.25em] text-accent font-medium mb-4">
+            Real people, real results
+          </p>
+          <h2 className="text-2xl sm:text-4xl md:text-[2.6rem] font-semibold text-accent-ink leading-tight">
+            Real skin, real results.
           </h2>
         </FadeIn>
 
-        {/* Stats bar */}
-        <FadeIn delay={0.1}>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-10 sm:mb-16">
-            {stats.map((stat, i) => (
-              <motion.div
-                key={i}
-                className="text-center p-4 sm:p-5 rounded-2xl glass"
-                whileHover={{ y: -3 }}
-                transition={{ duration: 0.3 }}
-              >
-                <p className="text-2xl sm:text-3xl font-[family-name:var(--font-script)] font-bold gradient-text">
-                  <AnimatedCounter target={stat.value} suffix={stat.suffix} />
-                </p>
-                <p className="text-xs text-muted font-[family-name:var(--font-body)] mt-1">
-                  {stat.label}
-                </p>
-              </motion.div>
-            ))}
-          </div>
-        </FadeIn>
-
-        <ShimmerLine className="max-w-xs mx-auto mb-10 sm:mb-16" />
-
-        {/* Testimonials */}
         <StaggerChildren className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
           {testimonials.map((t, i) => (
             <StaggerItem key={i}>
-              <motion.div
-                className="p-5 sm:p-6 rounded-2xl glass border border-card-border/40 transition-all duration-500"
-                whileHover={{
-                  y: -6,
-                  boxShadow: "0 20px 60px rgba(232, 160, 191, 0.12)",
-                }}
-              >
-                {/* Stars */}
-                <div className="flex gap-0.5 mb-4">
-                  {[...Array(5)].map((_, j) => (
-                    <Star
-                      key={j}
-                      size={14}
-                      className="text-gold fill-gold"
-                    />
-                  ))}
-                </div>
-
-                <p className="text-sm italic leading-relaxed mb-5 text-foreground/80">
+              <div className="h-full bg-[#f0f5ff] border border-accent/15 rounded-2xl p-6 sm:p-7 flex flex-col">
+                <Quote size={20} className="text-accent/40 mb-4 shrink-0" />
+                <p className="text-sm sm:text-base text-foreground/80 leading-relaxed flex-1 mb-6">
                   &ldquo;{t.quote}&rdquo;
                 </p>
-
                 <div className="flex items-center gap-3">
-                  <span className="w-9 h-9 rounded-full bg-accent/10 flex items-center justify-center text-xs font-medium text-accent">{t.avatar}</span>
+                  <div className="w-9 h-9 rounded-full bg-accent/15 flex items-center justify-center text-xs font-semibold text-accent shrink-0">
+                    {t.name[0]}
+                  </div>
                   <div>
-                    <p className="text-sm font-medium">{t.name}</p>
-                    <p className="text-xs text-muted font-[family-name:var(--font-body)]">
-                      {t.skin}
-                    </p>
+                    <p className="text-sm font-semibold text-accent-ink">{t.name}</p>
+                    <p className="text-xs text-muted">{t.age} years old</p>
                   </div>
                 </div>
-              </motion.div>
+              </div>
             </StaggerItem>
           ))}
         </StaggerChildren>

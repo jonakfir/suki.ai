@@ -116,24 +116,17 @@ function extractIngredients(product: OBFRawProduct): {
   return { list: [], raw: "" };
 }
 
-/** Product names containing these words are not skincare — skip them. */
-const NON_SKINCARE_KEYWORDS =
-  /\b(shampoo|toothpaste|deodorant|hair\s*dye|hair\s*color|mouthwash|hand\s*soap|dish\s*soap|laundry|perfume|cologne|nail\s*polish|body\s*wash)\b/i;
-
 /** Minimum number of real (non-junk) ingredients for a product to qualify. */
-const MIN_INGREDIENT_COUNT = 3;
+const MIN_INGREDIENT_COUNT = 1;
 
 /** Minimum OBF completeness score (0–1) to include a product. */
-const MIN_COMPLETENESS = 0.2;
+const MIN_COMPLETENESS = 0.05;
 
 function toOBFProduct(p: OBFRawProduct): OBFProduct | null {
   if (!p.product_name?.trim()) return null;
 
   // Completeness gate — very incomplete entries are unreliable
   if ((p.completeness ?? 0) < MIN_COMPLETENESS) return null;
-
-  // Skip obviously non-skincare products
-  if (NON_SKINCARE_KEYWORDS.test(p.product_name)) return null;
 
   const { list, raw } = extractIngredients(p);
   if (list.length < MIN_INGREDIENT_COUNT) return null;
@@ -182,9 +175,11 @@ async function fetchOBF(
  * Search Open Beauty Facts for skincare products.
  *
  * Strategy:
- * 1. Try brand-tag search (precise) — e.g. "cerave" → brands_tags=cerave
- * 2. If < 3 results, also try free-text search with the full query
- * 3. Merge, dedupe by barcode, return sorted by completeness
+ * 1. Run brand-tag search and free-text search in parallel
+ * 2. Merge and dedupe by barcode
+ * 3. Post-filter: keep only products where at least one query word appears
+ *    as a case-insensitive substring in the brand name or product name
+ *    (e.g. "wow" matches brand "Color Wow", "coat" matches name "Dream Coat")
  */
 export async function searchProducts(
   query: string,
@@ -195,6 +190,7 @@ export async function searchProducts(
 
   try {
     const lower = query.toLowerCase().trim();
+    const queryWords = lower.split(/\s+/).filter(Boolean);
 
     // Known multi-word brand prefixes (OBF uses hyphenated brand tags)
     const MULTI_WORD_BRANDS = [
@@ -216,56 +212,53 @@ export async function searchProducts(
       "ole henriksen",
       "derma e",
       "tree hut",
+      "color wow",
+      "colour wow",
     ];
 
     let brandGuess = lower.split(/\s+/)[0];
-    let productHint = lower.split(/\s+/).slice(1).join(" ");
     for (const b of MULTI_WORD_BRANDS) {
       if (lower.startsWith(b)) {
         brandGuess = b;
-        productHint = lower.slice(b.length).trim();
         break;
       }
     }
     const brandTag = brandGuess.replace(/['\s.]+/g, "-").replace(/-+/g, "-");
 
-    // Strategy 1: brand-tag search (most precise)
-    const brandParams = new URLSearchParams({
-      brands_tags: brandTag,
-      page_size: String(pageSize),
-    });
-    const brandResults = await fetchOBF(brandParams, controller.signal);
+    // Run brand-tag search and free-text search in parallel
+    const [brandResults, textResults] = await Promise.all([
+      fetchOBF(
+        new URLSearchParams({ brands_tags: brandTag, page_size: String(pageSize) }),
+        controller.signal
+      ),
+      fetchOBF(
+        new URLSearchParams({ q: query, page_size: String(pageSize) }),
+        controller.signal
+      ),
+    ]);
 
-    // If there's a product hint, filter brand results by name match
-    let filtered = brandResults;
-    if (productHint) {
-      const hintWords = productHint.split(/\s+/);
-      const nameMatched = brandResults.filter((p) => {
-        const name = p.name.toLowerCase();
-        return hintWords.some((w) => name.includes(w));
-      });
-      if (nameMatched.length > 0) filtered = nameMatched;
-    }
-
-    // Strategy 2: if brand search found < 3 usable products, try free-text
-    if (filtered.length < 3) {
-      const textParams = new URLSearchParams({
-        q: query,
-        page_size: String(pageSize),
-      });
-      const textResults = await fetchOBF(textParams, controller.signal);
-
-      // Merge and dedupe by barcode
-      const seen = new Set(filtered.map((p) => p.barcode));
-      for (const p of textResults) {
-        if (!seen.has(p.barcode)) {
-          seen.add(p.barcode);
-          filtered.push(p);
-        }
+    // Merge and dedupe by barcode (brand results first for ranking)
+    const seen = new Set<string>();
+    const merged: OBFProduct[] = [];
+    for (const p of [...brandResults, ...textResults]) {
+      if (!seen.has(p.barcode)) {
+        seen.add(p.barcode);
+        merged.push(p);
       }
     }
 
-    return filtered.sort((a, b) => b.completeness - a.completeness);
+    // Post-filter: keep products where any query word is a substring of name or brand.
+    // This makes "wow" match "Color Wow", "coat" match "Dream Coat", etc.
+    const relevant = merged.filter((p) => {
+      const nameLower = p.name.toLowerCase();
+      const brandLower = p.brand.toLowerCase();
+      return queryWords.some((w) => nameLower.includes(w) || brandLower.includes(w));
+    });
+
+    // Fall back to all merged results only if the relevance filter eliminates everything
+    const results = relevant.length > 0 ? relevant : merged;
+
+    return results.sort((a, b) => b.completeness - a.completeness);
   } catch (e) {
     if (e instanceof Error && e.name === "AbortError") {
       console.warn("OBF search timed out");

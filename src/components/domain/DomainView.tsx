@@ -25,6 +25,11 @@ import {
   Search,
 } from "lucide-react";
 
+interface TimeLabelConfig {
+  label: string;
+  icon?: React.ReactNode;
+}
+
 type TimeOfDay = "morning" | "evening" | "weekly";
 
 interface RoutineStep {
@@ -49,11 +54,13 @@ export function DomainView({
   title,
   tagline,
   accentVar,
+  timeLabels,
 }: {
   domain: ProductDomain;
   title: string;
   tagline: string;
   accentVar: string;
+  timeLabels?: { morning: TimeLabelConfig; evening: TimeLabelConfig };
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -158,9 +165,9 @@ export function DomainView({
       <FadeIn delay={0.12}>
         <section className="mt-8">
           <div className="flex items-center gap-2 mb-3">
-            <Sun size={15} className="text-[var(--gold)]" />
+            {timeLabels?.morning?.icon ?? <Sun size={15} className="text-[var(--gold)]" />}
             <h2 className="text-h3 font-light font-[family-name:var(--font-heading)]">
-              Morning
+              {timeLabels?.morning?.label ?? "Morning"}
             </h2>
           </div>
           <RoutineList steps={morning} productById={productById} loading={loading} />
@@ -170,9 +177,9 @@ export function DomainView({
       <FadeIn delay={0.16}>
         <section className="mt-6">
           <div className="flex items-center gap-2 mb-3">
-            <Moon size={15} className="text-[var(--lavender)]" />
+            {timeLabels?.evening?.icon ?? <Moon size={15} className="text-[var(--lavender)]" />}
             <h2 className="text-h3 font-light font-[family-name:var(--font-heading)]">
-              Night
+              {timeLabels?.evening?.label ?? "Night"}
             </h2>
           </div>
           <RoutineList steps={evening} productById={productById} loading={loading} />

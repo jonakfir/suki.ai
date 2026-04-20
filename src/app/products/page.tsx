@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useStore,
   UserProduct,
@@ -99,6 +99,7 @@ export default function ProductsPage() {
   const [lookupResults, setLookupResults] = useState<CatalogHit[]>([]);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState("");
+  const lookupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -432,12 +433,23 @@ export default function ProductsPage() {
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="e.g. cerave moisturizer"
+                  placeholder="Search skincare, hair, or makeup products..."
                   value={lookupQuery}
-                  onChange={(e) => setLookupQuery(e.target.value)}
+                  onChange={(e) => {
+                    const q = e.target.value;
+                    setLookupQuery(q);
+                    if (lookupTimerRef.current) clearTimeout(lookupTimerRef.current);
+                    if (q.trim().length >= 3) {
+                      lookupTimerRef.current = setTimeout(() => runLookup(), 500);
+                    } else {
+                      setLookupResults([]);
+                      setLookupError("");
+                    }
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
+                      if (lookupTimerRef.current) clearTimeout(lookupTimerRef.current);
                       runLookup();
                     }
                   }}
@@ -453,6 +465,9 @@ export default function ProductsPage() {
                   {lookupLoading ? "Searching" : "Find"}
                 </GhostButton>
               </div>
+              <p className="text-[11px] text-muted font-[family-name:var(--font-body)]">
+                Beauty products only — skincare, hair care, and makeup.
+              </p>
               {lookupError && (
                 <p className="text-xs text-muted font-[family-name:var(--font-body)]">{lookupError}</p>
               )}
@@ -466,7 +481,7 @@ export default function ProductsPage() {
                     >
                       <p className="text-sm font-medium">{hit.product_name}</p>
                       <p className="text-xs text-muted font-[family-name:var(--font-body)]">
-                        {hit.brand} &middot; {hit.category.replace("_", " ")} &middot; {hit.price_range}
+                        {hit.brand} &middot; {hit.category.replace(/_/g, " ")} &middot; {hit.price_range}
                       </p>
                       {hit.description && (
                         <p className="text-xs text-muted/80 mt-1 font-[family-name:var(--font-body)]">

@@ -14,7 +14,7 @@ import {
 } from "@/lib/ingredient-db";
 
 /* ── Claude-only fallback prompt (original behavior) ── */
-const FALLBACK_SYSTEM = `You are a skincare product knowledge base. When given a search query, return 5 real, commonly available skincare products that match. Prefer well-known brands (CeraVe, The Ordinary, La Roche-Posay, Paula's Choice, COSRX, Neutrogena, Kiehl's, Drunk Elephant, Tatcha, SkinCeuticals, etc.).
+const FALLBACK_SYSTEM = `You are a beauty product knowledge base. When given a search query, return 5 real, commonly available beauty products that match. Prefer well-known brands (CeraVe, The Ordinary, La Roche-Posay, Paula's Choice, COSRX, Neutrogena, Kiehl's, Drunk Elephant, Tatcha, SkinCeuticals, Olaplex, Color Wow, K18, Fenty Beauty, Charlotte Tilbury, etc.).
 
 Return ONLY valid JSON in this exact shape, no preamble:
 {
@@ -22,7 +22,7 @@ Return ONLY valid JSON in this exact shape, no preamble:
     {
       "product_name": "string",
       "brand": "string",
-      "category": "cleanser|toner|serum|moisturizer|sunscreen|exfoliant|mask|eye_cream|oil|treatment|other",
+      "category": "cleanser|toner|serum|moisturizer|sunscreen|exfoliant|mask|eye_cream|oil|treatment|shampoo|conditioner|hair_mask|hair_oil|hair_treatment|styling|foundation|concealer|blush|eyeshadow|mascara|lipstick|primer|other",
       "ingredients": ["string", "string"],
       "price_range": "$X-Y",
       "description": "one short sentence"
@@ -31,6 +31,8 @@ Return ONLY valid JSON in this exact shape, no preamble:
 }
 
 Rules:
+- Include skincare, haircare, and makeup products. Color Wow, Olaplex, K18, and similar haircare brands are valid.
+- If the query is not a beauty product, return an empty products array.
 - Real products only, no fictional ones
 - "ingredients" should list 3-6 key actives (not the full INCI list)
 - "category" must exactly match one of the allowed values
@@ -63,6 +65,7 @@ Return ONLY valid JSON in this exact shape, no preamble:
 }
 
 Rules:
+- Only pick products that are skincare, haircare, or makeup/cosmetics. Ignore any food, beverage, or non-beauty items.
 - "index" is the zero-based index from the product list provided
 - Pick at most 5, fewer if the list is small
 - "description" under 15 words
@@ -122,7 +125,6 @@ function enrichProduct(
     price_range: pick.price_range,
     description: pick.description,
     buy_url,
-    image_url: obf.image_url,
     barcode: obf.barcode,
     source: "open_beauty_facts",
     ...(ingredientAnalysis ? { ingredient_analysis: ingredientAnalysis } : {}),
@@ -226,7 +228,30 @@ export async function POST(request: Request) {
       await fetchUserProfile(isAdmin);
 
     /* ── Step 1: Try Open Beauty Facts ── */
-    const obfResults = await searchProducts(trimmed);
+    const rawObfResults = await searchProducts(trimmed);
+
+    // Strip non-beauty items that occasionally appear in the OBF database.
+    const NON_BEAUTY_CATEGORIES = new Set([
+      "beverages", "foods", "snacks", "dairy", "meats", "cereals",
+      "confectioneries", "frozen-foods", "condiments", "sauces",
+      "beverages-and-beverages", "plant-based-foods",
+    ]);
+    const NON_BEAUTY_NAME_HINTS = [
+      "juice", "drink", "water", "cola", "soda", "beer", "wine", "milk",
+      "cheese", "yogurt", "butter", "cream cheese", "chocolate", "candy",
+      "chips", "snack", "cookie", "biscuit", "cereal", "coffee", "tea bag",
+      "sauce", "ketchup", "vinegar", "oil" /* cooking oil — allow "facial oil" */,
+    ];
+    const obfResults = rawObfResults.filter((p) => {
+      const nameLower = p.name.toLowerCase();
+      const catLower = p.category.toLowerCase();
+      if (NON_BEAUTY_CATEGORIES.has(catLower)) return false;
+      // "oil" hint only blocks clearly food-only names (no beauty context words)
+      const beautyContext = ["face", "skin", "hair", "scalp", "body", "serum", "moistur", "clean", "lip", "eye", "nail"].some((w) => nameLower.includes(w));
+      return !NON_BEAUTY_NAME_HINTS.some((hint) =>
+        hint === "oil" ? nameLower.includes(hint) && !beautyContext : nameLower.includes(hint)
+      );
+    });
 
     /* ── Step 2: If OBF has results, run ingredient analysis & let Claude rank ── */
     if (obfResults.length > 0) {
@@ -324,14 +349,7 @@ export async function POST(request: Request) {
       const buy_url = q
         ? `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(q)}`
         : null;
-      const tags = ["skincare", p.category, "beauty"].filter(Boolean).join(",");
-      const seed = encodeURIComponent(
-        `${p.brand}-${p.product_name}`
-          .toLowerCase()
-          .replace(/[^a-z0-9-]+/g, "-")
-      );
-      const image_url = `https://loremflickr.com/400/500/${encodeURIComponent(tags)}?lock=${seed.length}`;
-      return { ...p, buy_url, image_url, source: "claude" };
+      return { ...p, buy_url, source: "claude" };
     });
     return NextResponse.json({ products: enriched });
   } catch (error) {

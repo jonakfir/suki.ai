@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { FadeIn } from "@/components/ui/FadeIn";
-import { ShimmerLine } from "@/components/ui/SkincareElements";
 import { Sparkles } from "lucide-react";
 
 const PROMPT =
@@ -60,47 +59,31 @@ export function StreamingChat() {
   }, [thinking, visible]);
 
   return (
-    <section ref={ref} className="relative py-20 sm:py-28 px-4 sm:px-6 overflow-hidden bg-background/30 backdrop-blur-[2px]">
+    <section ref={ref} className="relative py-20 sm:py-28 px-4 sm:px-8 bg-[#f8f8f6] overflow-hidden">
       <div className="relative z-10 max-w-4xl mx-auto">
-        <FadeIn className="text-center mb-3">
-          <span className="font-[family-name:var(--font-script)] text-accent text-lg">
-            Watch it think
-          </span>
-        </FadeIn>
-        <FadeIn className="text-center mb-4">
-          <h2 className="text-3xl sm:text-5xl font-medium italic">
-            AI that <span className="gradient-text">actually listens.</span>
+        <FadeIn className="text-center mb-12">
+          <p className="text-xs uppercase tracking-[0.25em] text-accent font-medium mb-4">
+            See it in action
+          </p>
+          <h2 className="text-2xl sm:text-4xl md:text-[2.6rem] font-semibold text-accent-ink leading-tight mb-4">
+            AI that actually listens.
           </h2>
-        </FadeIn>
-        <FadeIn className="text-center mb-10 sm:mb-12">
-          <p className="text-muted max-w-xl mx-auto">
+          <p className="text-sm sm:text-base text-muted max-w-md mx-auto leading-relaxed">
             A real prompt. A real reasoning chain. Every recommendation explains itself.
           </p>
         </FadeIn>
-        <ShimmerLine className="max-w-xs mx-auto mb-10" />
 
-        <div className="relative rounded-3xl border border-card-border/50 bg-card/85 backdrop-blur-sm shadow-[0_30px_80px_-40px_rgba(30,91,184,0.45)] p-5 sm:p-8 overflow-hidden">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -inset-1 rounded-3xl opacity-60"
-            style={{
-              background:
-                "conic-gradient(from 120deg at 50% 50%, rgba(90,154,232,0.25), rgba(168,152,224,0.25), rgba(232,160,191,0.2), rgba(90,154,232,0.25))",
-              filter: "blur(40px)",
-              zIndex: -1,
-            }}
-          />
-
+        <div className="relative rounded-2xl border border-blue-100 bg-white shadow-[0_8px_40px_-12px_rgba(59,125,216,0.15)] p-5 sm:p-8 overflow-hidden">
           {/* User message */}
           <div className="flex justify-end mb-5">
-            <div className="max-w-[85%] rounded-2xl rounded-tr-sm bg-accent/12 border border-accent/25 px-4 py-3 text-sm">
+            <div className="max-w-[85%] rounded-2xl rounded-tr-sm bg-accent/8 border border-accent/20 px-4 py-3 text-sm text-foreground/90 leading-relaxed">
               {PROMPT}
             </div>
           </div>
 
           {/* AI response */}
           <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-accent to-lavender flex items-center justify-center shadow-[0_0_20px_rgba(90,154,232,0.6)] shrink-0">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-accent to-accent-deep flex items-center justify-center shadow-[0_4px_12px_rgba(59,125,216,0.35)] shrink-0">
               <Sparkles size={16} className="text-white" />
             </div>
             <div className="flex-1 min-w-0">
@@ -123,7 +106,7 @@ export function StreamingChat() {
                   </span>
                 </motion.div>
               ) : (
-                <pre className="whitespace-pre-wrap font-[family-name:var(--font-body)] text-sm leading-relaxed text-foreground">
+                <pre className="whitespace-pre-wrap font-[family-name:var(--font-body)] text-sm leading-relaxed text-foreground/85">
                   {typed}
                   {typed.length < RESPONSE.length && (
                     <motion.span

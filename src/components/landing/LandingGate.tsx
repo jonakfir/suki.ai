@@ -2,18 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { NativeLanding } from "./NativeLanding";
-import { GlobalReveal } from "./GlobalReveal";
-import { ParticleField } from "./ParticleField";
 import { Hero } from "./Hero";
+import { Features } from "./Features";
 import { StreamingChat } from "./StreamingChat";
 import { RoutineTimeline } from "./RoutineTimeline";
-import { BeforeAfter } from "./BeforeAfter";
-import { Features } from "./Features";
 import { SocialProof } from "./SocialProof";
 import { CTA } from "./CTA";
-import { FloatingBubbles } from "@/components/ui/SkincareElements";
-import { FloatingProducts } from "@/components/ui/FloatingProducts";
-import { ParallaxBlobs } from "./ParallaxBlobs";
 
 // Shows the app-native landing when running in Capacitor, the marketing
 // landing when visiting from a browser.
@@ -22,8 +16,6 @@ export function LandingGate() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    // Defer one tick so the state write lands in its own render pass
-    // (satisfies the no-cascading-renders lint rule on Vercel).
     const id = setTimeout(() => {
       const override = new URLSearchParams(window.location.search).get("native");
       let next: "native" | "web";
@@ -40,9 +32,8 @@ export function LandingGate() {
     return () => clearTimeout(id);
   }, []);
 
-  // Avoid a flash of the wrong variant before detection completes.
   if (mode === null) {
-    return <div className="min-h-screen" />;
+    return <div className="min-h-screen bg-white" />;
   }
 
   if (mode === "native") {
@@ -50,22 +41,13 @@ export function LandingGate() {
   }
 
   return (
-    <div className="relative min-h-screen">
-      <ParallaxBlobs />
-      <FloatingProducts />
-      <GlobalReveal />
-      <ParticleField />
-      <FloatingBubbles />
-
-      <div className="relative z-10">
-        <Hero />
-        <StreamingChat />
-        <SocialProof />
-        <RoutineTimeline />
-        <Features />
-        <BeforeAfter />
-        <CTA />
-      </div>
+    <div className="min-h-screen">
+      <Hero />
+      <Features />
+      <StreamingChat />
+      <RoutineTimeline />
+      <SocialProof />
+      <CTA />
     </div>
   );
 }

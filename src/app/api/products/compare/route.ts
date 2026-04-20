@@ -14,19 +14,33 @@ interface Alternative {
   why?: string;
 }
 
+interface KeyIngredient {
+  name: string;
+  what_it_does: string;
+  role: "hero" | "supporting" | "watch_out";
+}
+
+interface VsProduct {
+  product_name: string;
+  brand: string;
+  verdict: "better" | "same" | "stick_with_it";
+  reason: string;
+}
+
 interface CompareResponse {
   product_name: string;
   brand?: string;
   category?: string;
   domain?: "skincare" | "haircare" | "makeup" | "other";
   summary: string;
-  key_ingredients?: string[];
+  key_ingredients?: KeyIngredient[];
   good_for?: string[];
   watch_out_for?: string[];
-  fit_for_you?: string;       // personalized commentary
+  fit_for_you?: string;
+  vs_your_products?: VsProduct[];
+  recommendation?: string;
   cheaper_alternatives?: Alternative[];
   premium_alternatives?: Alternative[];
-  best_overall?: Alternative;
 }
 
 const SYSTEM_PROMPT = `You are Suki, a skincare / haircare / makeup expert.
@@ -43,12 +57,21 @@ function buildUserPrompt(opts: {
   text?: string;
   profileSummary?: string;
   preferenceMode?: string;
+  currentProducts?: Array<{ product_name: string; brand: string; category: string }>;
 }) {
   const parts: string[] = [];
-  parts.push("Task: describe this product and find similar options at different price points.");
+  parts.push("Task: describe this product, compare it to the user's existing products in the same category, and find similar options at different price points.");
 
   if (opts.text) parts.push(`Product description from user: ${opts.text}`);
   if (opts.profileSummary) parts.push(`User profile: ${opts.profileSummary}`);
+
+  if (opts.currentProducts?.length) {
+    const list = opts.currentProducts
+      .map((p) => `- ${p.product_name} by ${p.brand} (${p.category})`)
+      .join("\n");
+    parts.push(`User's current products:\n${list}`);
+  }
+
   if (opts.preferenceMode) {
     const hint: Record<string, string> = {
       budget: "User values drugstore / under $25 picks. Heavily favor low-cost alternatives.",
@@ -67,13 +90,14 @@ function buildUserPrompt(opts: {
   "category": string | null,
   "domain": "skincare" | "haircare" | "makeup" | "other",
   "summary": string (2-3 sentences, plain language),
-  "key_ingredients": string[] (up to 6),
+  "key_ingredients": [{"name": string, "what_it_does": string (one line), "role": "hero" | "supporting" | "watch_out"}] (up to 6),
   "good_for": string[] (up to 5 bullet phrases),
   "watch_out_for": string[] (up to 4 bullet phrases),
-  "fit_for_you": string | null (1-2 sentences personalized for the user profile),
+  "fit_for_you": string | null (1-2 sentences personalized for the user profile — used when user has no products in the same category),
+  "vs_your_products": [{"product_name": string, "brand": string, "verdict": "better" | "same" | "stick_with_it", "reason": string}] (compare ONLY to user's current products in the same category; omit if user has none),
+  "recommendation": string | null (1-2 sentence final recommendation, referencing the comparison — omit if no vs_your_products),
   "cheaper_alternatives": [{"name": string, "brand": string, "price_range": string, "why": string}] (2-3),
-  "premium_alternatives": [{"name": string, "brand": string, "price_range": string, "why": string}] (1-2),
-  "best_overall": {"name": string, "brand": string, "price_range": string, "why": string}
+  "premium_alternatives": [{"name": string, "brand": string, "price_range": string, "why": string}] (1-2)
 }`
   );
   return parts.join("\n\n");
@@ -216,18 +240,24 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Load current user profile (best-effort) using the already-resolved userId.
+  // Load current user profile and current products (best-effort, in parallel).
   let profile: Record<string, unknown> | null = null;
+  let currentProducts: Array<{ product_name: string; brand: string; category: string }> = [];
   try {
     const supabase = isAdmin ? createAdminClient() : await createClient();
-    const { data } = await supabase
-      .from("users_profile")
-      .select("*")
-      .eq("user_id", authedUserId)
-      .single();
-    if (data) profile = data as Record<string, unknown>;
+    const [profileRes, productsRes] = await Promise.all([
+      supabase.from("users_profile").select("*").eq("user_id", authedUserId).single(),
+      supabase
+        .from("user_products")
+        .select("product_name, brand, category")
+        .eq("user_id", authedUserId)
+        .eq("is_current", true)
+        .limit(20),
+    ]);
+    if (profileRes.data) profile = profileRes.data as Record<string, unknown>;
+    if (productsRes.data) currentProducts = productsRes.data;
   } catch (e) {
-    console.warn("compare: failed to load profile", e);
+    console.warn("compare: failed to load profile/products", e);
   }
 
   // Client-provided preference mode wins over DB.
@@ -252,6 +282,7 @@ export async function POST(req: NextRequest) {
     text: text || (imageBase64 ? "(See attached image.)" : undefined),
     profileSummary: summarizeProfile(profile),
     preferenceMode: clientMode ?? profileMode ?? "most_recommended",
+    currentProducts,
   });
 
   const allowedMime = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -270,7 +301,7 @@ export async function POST(req: NextRequest) {
     const result = await callClaude({
       system: SYSTEM_PROMPT,
       prompt,
-      maxTokens: 1400,
+      maxTokens: 2200,
       image: imageBase64
         ? { base64: imageBase64, mediaType: imageMime }
         : null,
