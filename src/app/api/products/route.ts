@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ADMIN_USER_ID } from "@/lib/admin";
 import { verifyAdminCookie, ADMIN_COOKIE_NAME } from "@/lib/admin-cookie";
+import { enqueueWikiJob } from "@/lib/wiki/store";
 
 type SupabaseLike = Awaited<ReturnType<typeof createClient>> | ReturnType<typeof createAdminClient>;
 
@@ -110,6 +111,10 @@ export async function POST(request: Request) {
       .single();
 
     if (error) throw error;
+    // Fire-and-forget: enqueue a wiki maintenance job.
+    enqueueWikiJob(auth.userId, "product.add", data.id, {}).catch((e) => {
+      console.warn("wiki enqueue (product.add) failed:", e);
+    });
     return NextResponse.json({ product: data });
   } catch (error) {
     console.error("Failed to add product:", error);
@@ -159,6 +164,9 @@ export async function PATCH(request: Request) {
       .single();
 
     if (error) throw error;
+    enqueueWikiJob(auth.userId, "product.update", id, {}).catch((e) => {
+      console.warn("wiki enqueue (product.update) failed:", e);
+    });
     return NextResponse.json({ product: data });
   } catch (error) {
     console.error("Failed to update product:", error);
@@ -185,6 +193,9 @@ export async function DELETE(request: Request) {
       .eq("user_id", auth.userId);
 
     if (error) throw error;
+    enqueueWikiJob(auth.userId, "product.delete", id, {}).catch((e) => {
+      console.warn("wiki enqueue (product.delete) failed:", e);
+    });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Failed to delete product:", error);

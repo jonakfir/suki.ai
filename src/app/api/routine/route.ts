@@ -4,6 +4,13 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ADMIN_USER_ID } from "@/lib/admin";
 import { verifyAdminCookie, ADMIN_COOKIE_NAME } from "@/lib/admin-cookie";
+import { enqueueWikiJob } from "@/lib/wiki/store";
+
+function enqueueRoutineWikiUpdate(userId: string) {
+  enqueueWikiJob(userId, "routine.update", null, {}).catch((e) => {
+    console.warn("wiki enqueue (routine.update) failed:", e);
+  });
+}
 
 type SupabaseLike = Awaited<ReturnType<typeof createClient>> | ReturnType<typeof createAdminClient>;
 
@@ -119,6 +126,7 @@ export async function POST(request: Request) {
       )
       .single();
     if (error) throw error;
+    enqueueRoutineWikiUpdate(auth.userId);
     return NextResponse.json({ step: data });
   } catch (error) {
     console.error("Failed to add routine step:", error);
@@ -152,6 +160,7 @@ export async function PATCH(request: Request) {
       .select()
       .single();
     if (error) throw error;
+    enqueueRoutineWikiUpdate(auth.userId);
     return NextResponse.json({ step: data });
   } catch (error) {
     console.error("Failed to update routine step:", error);
@@ -177,6 +186,7 @@ export async function DELETE(request: Request) {
       .eq("id", id)
       .eq("user_id", auth.userId);
     if (error) throw error;
+    enqueueRoutineWikiUpdate(auth.userId);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Failed to delete routine step:", error);

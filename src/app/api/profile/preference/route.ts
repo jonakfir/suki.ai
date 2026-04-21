@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveAuth } from "@/lib/api-auth";
+import { enqueueWikiJob } from "@/lib/wiki/store";
 
 const ALLOWED = new Set(["budget", "simple", "high_end", "most_recommended"]);
 
@@ -30,6 +31,9 @@ export async function POST(request: Request) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+  enqueueWikiJob(auth.userId, "profile.update", null, { field: "preference_mode" }).catch(
+    (e) => console.warn("wiki enqueue (profile.update) failed:", e)
+  );
   return NextResponse.json({
     preference_mode: data?.preference_mode ?? mode,
     via: auth.isAdmin ? "admin" : "user",

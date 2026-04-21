@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ADMIN_USER_ID } from "@/lib/admin";
 import { verifyAdminCookie, ADMIN_COOKIE_NAME } from "@/lib/admin-cookie";
+import { enqueueWikiJob } from "@/lib/wiki/store";
 
 async function resolveAuth() {
   const cookieStore = await cookies();
@@ -92,6 +93,9 @@ export async function POST(request: Request) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+  enqueueWikiJob(auth.userId, "progress.photo", data.id, { domain }).catch((e) =>
+    console.warn("wiki enqueue (progress.photo) failed:", e)
+  );
   return NextResponse.json({ photo: data });
 }
 

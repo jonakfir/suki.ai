@@ -24,6 +24,7 @@ import {
   BellOff,
   Camera,
   Trash2,
+  BookOpen,
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import {
@@ -359,6 +360,23 @@ export default function MePage() {
               <div className="text-sm font-medium">Progress timeline</div>
               <p className="text-xs text-muted">
                 Weekly photos + side-by-side comparisons.
+              </p>
+            </div>
+            <ArrowRight size={14} className="text-muted" />
+          </Card>
+        </Link>
+      </FadeIn>
+
+      <FadeIn delay={0.115}>
+        <Link href="/me/wiki" className="block mt-4">
+          <Card className="p-5 flex items-center gap-3 hover:border-accent/40 transition-colors">
+            <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
+              <BookOpen size={16} className="text-accent-deep" />
+            </div>
+            <div className="flex-1">
+              <div className="text-sm font-medium">Your Beauty Wiki</div>
+              <p className="text-xs text-muted">
+                Everything Suki has learned about you, kept current automatically.
               </p>
             </div>
             <ArrowRight size={14} className="text-muted" />
