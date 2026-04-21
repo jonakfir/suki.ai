@@ -4,6 +4,9 @@
 /node_modules
 /.pnp
 .pnp.*
+# npm lockfile pins OS-specific native binaries (Next SWC), which breaks Vercel.
+# We use Bun and rely on package.json ranges.
+package-lock.json
 .yarn/*
 !.yarn/patches
 !.yarn/plugins
