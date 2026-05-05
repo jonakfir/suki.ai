@@ -16,9 +16,11 @@ import { Card } from "@/components/ui/Card";
 import { GhostButton } from "@/components/ui/GhostButton";
 import { FadeIn } from "@/components/ui/FadeIn";
 import { PageHero } from "@/components/ui/PageHero";
-import { Save, RefreshCw, LogOut, Heart, Package, ListChecks } from "lucide-react";
+import { Save, RefreshCw, LogOut, Heart, Package, ListChecks, Check, X, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { UserProduct } from "@/lib/store";
+
+const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 
 const skinTypes: SkinType[] = ["oily", "dry", "combination", "normal", "sensitive"];
 const tones: SkinTone[] = ["fair", "light", "medium", "tan", "deep"];
@@ -47,6 +49,13 @@ export default function ProfilePage() {
     evening: number;
     weekly: number;
   }>({ morning: 0, evening: 0, weekly: 0 });
+  const [username, setUsername] = useState<string | null>(null);
+  const [usernameInput, setUsernameInput] = useState("");
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+  const [usernameChecking, setUsernameChecking] = useState(false);
+  const [usernameSaving, setUsernameSaving] = useState(false);
+  const [isPublic, setIsPublic] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const supabase = createClient();
   const router = useRouter();
 
@@ -79,7 +88,10 @@ export default function ProfilePage() {
           routine_complexity: data.routine_complexity,
         });
         setAllergies(data.known_allergies || []);
+        setUsername(data.username ?? null);
+        setIsPublic(data.is_public === true);
       }
+      setIsAdmin(admin);
       setLoading(false);
     }
     load();
@@ -134,6 +146,72 @@ export default function ProfilePage() {
     setAllergies((prev) =>
       prev.includes(a) ? prev.filter((x) => x !== a) : [...prev, a]
     );
+  };
+
+  useEffect(() => {
+    const value = usernameInput.trim();
+    if (!value) {
+      setUsernameAvailable(null);
+      setUsernameChecking(false);
+      return;
+    }
+    if (!USERNAME_RE.test(value)) {
+      setUsernameAvailable(null);
+      setUsernameChecking(false);
+      return;
+    }
+    setUsernameChecking(true);
+    const handle = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/username?q=${encodeURIComponent(value)}`);
+        if (!res.ok) {
+          setUsernameAvailable(null);
+        } else {
+          const json = await res.json();
+          setUsernameAvailable(typeof json.available === "boolean" ? json.available : null);
+        }
+      } catch {
+        setUsernameAvailable(null);
+      } finally {
+        setUsernameChecking(false);
+      }
+    }, 400);
+    return () => clearTimeout(handle);
+  }, [usernameInput]);
+
+  const handleClaimUsername = async () => {
+    const value = usernameInput.trim();
+    if (!USERNAME_RE.test(value) || usernameAvailable !== true) return;
+    setUsernameSaving(true);
+    try {
+      const res = await fetch("/api/username", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: value }),
+      });
+      if (res.ok) {
+        const body = await res.json();
+        setUsername(body.username);
+        setUsernameInput("");
+        setUsernameAvailable(null);
+      }
+    } finally {
+      setUsernameSaving(false);
+    }
+  };
+
+  const handleTogglePublic = async (next: boolean) => {
+    setIsPublic(next);
+    try {
+      const res = await fetch("/api/profile/privacy", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_public: next }),
+      });
+      if (!res.ok) setIsPublic(!next);
+    } catch {
+      setIsPublic(!next);
+    }
   };
 
   const handleSave = async () => {
@@ -200,6 +278,87 @@ export default function ProfilePage() {
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
 
       <div className="space-y-4 sm:space-y-6">
+        {!isAdmin && (
+          <FadeIn delay={0.02}>
+            <Card>
+              <h2 className="text-lg font-light mb-4">Handle & privacy</h2>
+              {username ? (
+                <div className="flex items-center justify-between gap-4 mb-4">
+                  <div className="text-sm">
+                    <span className="text-muted">Your handle:</span>{" "}
+                    <span className="text-accent-deep">@{username}</span>
+                  </div>
+                  <Link
+                    href={`/profile/${username}`}
+                    className="text-xs text-accent-deep underline underline-offset-2"
+                  >
+                    View public profile
+                  </Link>
+                </div>
+              ) : (
+                <div className="mb-4">
+                  <p className="text-sm text-muted mb-2">
+                    Claim a handle so friends can find your profile.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 flex items-center gap-2 rounded-lg border border-[var(--card-border)] bg-background/60 px-3 py-2">
+                      <span className="text-muted text-sm">@</span>
+                      <input
+                        type="text"
+                        value={usernameInput}
+                        onChange={(e) =>
+                          setUsernameInput(
+                            e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "")
+                          )
+                        }
+                        placeholder="yourhandle"
+                        className="flex-1 bg-transparent text-sm outline-none"
+                        maxLength={20}
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                      />
+                      {usernameChecking && (
+                        <Loader2 size={14} className="animate-spin text-muted" />
+                      )}
+                      {!usernameChecking && usernameInput && usernameAvailable === true && (
+                        <Check size={14} className="text-emerald-500" />
+                      )}
+                      {!usernameChecking && usernameInput && usernameAvailable === false && (
+                        <X size={14} className="text-red-500" />
+                      )}
+                    </div>
+                    <GhostButton
+                      variant="outline"
+                      onClick={handleClaimUsername}
+                      disabled={
+                        usernameSaving ||
+                        !USERNAME_RE.test(usernameInput.trim()) ||
+                        usernameAvailable !== true
+                      }
+                    >
+                      {usernameSaving ? "Saving…" : "Claim"}
+                    </GhostButton>
+                  </div>
+                </div>
+              )}
+              <label className="flex items-center justify-between gap-3 cursor-pointer">
+                <span className="text-sm">
+                  Profile is public
+                  <span className="block text-xs text-muted">
+                    Followers can see your products & ratings.
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={isPublic}
+                  onChange={(e) => handleTogglePublic(e.target.checked)}
+                  className="h-5 w-9 cursor-pointer"
+                />
+              </label>
+            </Card>
+          </FadeIn>
+        )}
         {/* Skin Type */}
         <FadeIn delay={0.05}>
           <Card>

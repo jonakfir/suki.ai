@@ -42,7 +42,8 @@ import {
   User as UserIcon,
 } from "lucide-react";
 
-const TOTAL_STEPS = 9;
+const TOTAL_STEPS = 10;
+const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 
 const skinTypes: { value: SkinType; label: string; icon: typeof Droplets; description: string }[] = [
   { value: "oily",        label: "Oily",        icon: Droplets,    description: "Shiny by midday, visible pores, prone to breakouts" },
@@ -166,6 +167,9 @@ export default function OnboardPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [usernameInput, setUsernameInput] = useState("");
+  const [usernameChecking, setUsernameChecking] = useState(false);
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Step 2 — product scan state
@@ -202,6 +206,37 @@ export default function OnboardPage() {
   useEffect(() => {
     if (catalog) setLocalCatalog({ skincare: [...catalog.skincare], hair: [...catalog.hair], makeup: [...catalog.makeup] });
   }, [catalog]);
+
+  useEffect(() => {
+    const value = usernameInput.trim();
+    if (!value) {
+      setUsernameAvailable(null);
+      setUsernameChecking(false);
+      return;
+    }
+    if (!USERNAME_RE.test(value)) {
+      setUsernameAvailable(null);
+      setUsernameChecking(false);
+      return;
+    }
+    setUsernameChecking(true);
+    const handle = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/username?q=${encodeURIComponent(value)}`);
+        if (!res.ok) {
+          setUsernameAvailable(null);
+        } else {
+          const json = await res.json();
+          setUsernameAvailable(typeof json.available === "boolean" ? json.available : null);
+        }
+      } catch {
+        setUsernameAvailable(null);
+      } finally {
+        setUsernameChecking(false);
+      }
+    }, 400);
+    return () => clearTimeout(handle);
+  }, [usernameInput]);
 
   const runSearch = async (q: string) => {
     if (q.trim().length < 2) { setSuggestions([]); return; }
@@ -474,6 +509,23 @@ export default function OnboardPage() {
             { onConflict: "user_id" }
           );
         if (error) throw error;
+      }
+
+      const trimmedUsername = usernameInput.trim();
+      if (!admin && trimmedUsername && USERNAME_RE.test(trimmedUsername)) {
+        try {
+          const res = await fetch("/api/username", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username: trimmedUsername }),
+          });
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            console.warn("Username claim failed:", body?.error || res.status);
+          }
+        } catch (err) {
+          console.warn("Username claim failed:", err);
+        }
       }
 
       // Fire-and-forget recommendations generation.
@@ -1240,8 +1292,68 @@ export default function OnboardPage() {
               </div>
             )}
 
-            {/* Step 9: All set */}
+            {/* Step 9: Pick a handle */}
             {step === 9 && (
+              <div>
+                <div className="flex justify-center mb-2">
+                  <UserIcon size={22} className="text-accent" />
+                </div>
+                <h2 className="text-h2 font-light text-center mb-2 px-2">
+                  Pick a handle
+                </h2>
+                <p className="text-sm text-muted text-center mb-6 font-[family-name:var(--font-body)] max-w-sm mx-auto">
+                  Optional — your handle lets friends find your profile. 3–20
+                  chars, lowercase letters, numbers, or underscore.
+                </p>
+                <div className="max-w-sm mx-auto">
+                  <div className="flex items-center gap-2 rounded-lg border border-[var(--card-border)] bg-background/60 px-3 py-2">
+                    <span className="text-muted text-sm">@</span>
+                    <input
+                      type="text"
+                      value={usernameInput}
+                      onChange={(e) =>
+                        setUsernameInput(
+                          e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "")
+                        )
+                      }
+                      placeholder="yourhandle"
+                      className="flex-1 bg-transparent text-sm outline-none"
+                      maxLength={20}
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                    />
+                    {usernameChecking && (
+                      <Loader2 size={14} className="animate-spin text-muted" />
+                    )}
+                    {!usernameChecking && usernameInput && usernameAvailable === true && (
+                      <Check size={14} className="text-emerald-500" />
+                    )}
+                    {!usernameChecking && usernameInput && usernameAvailable === false && (
+                      <X size={14} className="text-red-500" />
+                    )}
+                  </div>
+                  {usernameInput && !USERNAME_RE.test(usernameInput) && (
+                    <p className="mt-2 text-xs text-muted">
+                      3–20 chars; a–z, 0–9, _
+                    </p>
+                  )}
+                  {usernameInput && USERNAME_RE.test(usernameInput) && usernameAvailable === false && (
+                    <p className="mt-2 text-xs text-red-500">
+                      That handle is taken.
+                    </p>
+                  )}
+                  {usernameInput && USERNAME_RE.test(usernameInput) && usernameAvailable === true && (
+                    <p className="mt-2 text-xs text-emerald-600">
+                      @{usernameInput} is available.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Step 10: All set */}
+            {step === 10 && (
               <div className="text-center">
                 <Sparkles size={32} className="text-accent mx-auto mb-4" />
                 <h2 className="text-h2 font-light mb-2 px-2">
@@ -1305,7 +1417,17 @@ export default function OnboardPage() {
                   )}
                 </GhostButton>
               ) : (
-                <GhostButton variant="outline" onClick={next}>
+                <GhostButton
+                  variant="outline"
+                  onClick={next}
+                  disabled={
+                    step === 9 &&
+                    usernameInput.trim().length > 0 &&
+                    (!USERNAME_RE.test(usernameInput.trim()) ||
+                      usernameAvailable !== true ||
+                      usernameChecking)
+                  }
+                >
                   Continue
                   <ChevronRight size={16} />
                 </GhostButton>

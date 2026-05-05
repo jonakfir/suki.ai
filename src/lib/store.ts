@@ -139,6 +139,9 @@ export interface SkinProfile {
   initial_products_bad?: string;
   initial_hair_products?: string;
   initial_makeup_products?: string;
+  // social
+  username?: string | null;
+  is_public?: boolean;
 }
 
 export interface UserProduct {
@@ -227,6 +230,8 @@ const emptyProfile: SkinProfile = {
   initial_products_bad: "",
   initial_hair_products: "",
   initial_makeup_products: "",
+  username: null,
+  is_public: true,
 };
 
 export const useStore = create<AppState>((set) => ({
