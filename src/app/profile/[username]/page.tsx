@@ -115,31 +115,43 @@ export default async function PublicProfilePage({
 
   return (
     <main className="max-w-2xl mx-auto px-4 py-8">
-      <header className="flex items-center gap-4 mb-8">
+      <header className="mb-10 flex items-start gap-5">
         <UserAvatar
           username={profile.username}
           photoUrl={profile.face_photo_url ?? null}
           size="lg"
         />
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-semibold truncate">@{profile.username}</h1>
-          <div className="text-sm text-muted mt-1 flex gap-4">
-            <span><b className="text-foreground">{followerCount}</b> followers</span>
-            <span><b className="text-foreground">{followingCount}</b> following</span>
-            <span><b className="text-foreground">{products.length}</b> products</span>
-          </div>
+        <div className="flex-1 min-w-0 pt-1">
+          <h1 className="text-2xl font-semibold truncate leading-tight">
+            @{profile.username}
+          </h1>
+          <p className="mt-1.5 text-sm text-muted">
+            <span className="tabular-nums text-foreground font-medium">{products.length}</span>{" "}
+            {products.length === 1 ? "product" : "products"}
+            <span className="mx-2 text-[var(--card-border)]">·</span>
+            <span className="tabular-nums text-foreground font-medium">{followerCount}</span>{" "}
+            {followerCount === 1 ? "follower" : "followers"}
+            <span className="mx-2 text-[var(--card-border)]">·</span>
+            <span className="tabular-nums text-foreground font-medium">{followingCount}</span>{" "}
+            following
+          </p>
+          {!isOwn && viewerId && (
+            <div className="mt-4">
+              <FollowButton
+                targetUserId={profile.user_id}
+                initialFollowing={isFollowing}
+              />
+            </div>
+          )}
+          {!viewerId && (
+            <Link
+              href="/auth"
+              className="inline-block mt-4 px-4 py-1.5 rounded-full bg-accent text-white text-sm"
+            >
+              Sign in to follow
+            </Link>
+          )}
         </div>
-        {!isOwn && viewerId && (
-          <FollowButton
-            targetUserId={profile.user_id}
-            initialFollowing={isFollowing}
-          />
-        )}
-        {!viewerId && (
-          <Link href="/auth" className="px-4 py-1.5 rounded-full bg-accent text-white text-sm">
-            Sign in
-          </Link>
-        )}
       </header>
 
       {(["skincare", "haircare", "makeup"] as const).map((domain) => {
