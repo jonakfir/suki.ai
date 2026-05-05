@@ -3,6 +3,13 @@ import { NextResponse, type NextRequest } from "next/server";
 import { verifyAdminCookie, ADMIN_COOKIE_NAME } from "@/lib/admin-cookie";
 
 export async function middleware(request: NextRequest) {
+  // Public profile pages (/profile/<handle>) are accessible without auth.
+  // The editor is at /profile (no segment) and remains gated below.
+  const path = request.nextUrl.pathname;
+  if (/^\/profile\/[^/]+$/.test(path)) {
+    return NextResponse.next();
+  }
+
   // Allow admin sessions through
   const adminSession = request.cookies.get(ADMIN_COOKIE_NAME);
   if (await verifyAdminCookie(adminSession?.value)) {
