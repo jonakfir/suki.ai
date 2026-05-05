@@ -6,6 +6,41 @@ import { ADMIN_USER_ID } from "@/lib/admin";
 import { verifyAdminCookie, ADMIN_COOKIE_NAME } from "@/lib/admin-cookie";
 import { enqueueWikiJob } from "@/lib/wiki/store";
 
+async function writeActivity(
+  supabase: SupabaseLike,
+  userId: string,
+  isAdmin: boolean,
+  payload: {
+    activity_type: "added_product" | "rated_product";
+    product_name: string;
+    brand: string;
+    rating?: string | null;
+    domain: "skincare" | "haircare" | "makeup";
+    product_id?: string | null;
+  }
+) {
+  if (isAdmin) return;
+  try {
+    const { data: profile } = await supabase
+      .from("users_profile")
+      .select("is_public")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (!profile || profile.is_public === false) return;
+    await supabase.from("activity_events").insert({
+      user_id: userId,
+      activity_type: payload.activity_type,
+      product_name: payload.product_name,
+      brand: payload.brand,
+      rating: payload.rating ?? null,
+      domain: payload.domain,
+      product_id: payload.product_id ?? null,
+    });
+  } catch (e) {
+    console.warn("activity_events write failed:", e);
+  }
+}
+
 type SupabaseLike = Awaited<ReturnType<typeof createClient>> | ReturnType<typeof createAdminClient>;
 
 const HAIR_CATEGORIES = new Set([
@@ -40,22 +75,22 @@ function sanitizeUrl(u: unknown): string | null {
 }
 
 async function resolveAuth(): Promise<
-  { userId: string; supabase: SupabaseLike } | { error: Response }
+  { userId: string; supabase: SupabaseLike; isAdmin: boolean } | { error: Response }
 > {
-  const cookieStore = await cookies();
-  const isAdmin = await verifyAdminCookie(cookieStore.get(ADMIN_COOKIE_NAME)?.value);
-
-  if (isAdmin) {
-    return { userId: ADMIN_USER_ID, supabase: createAdminClient() };
-  }
+  // Real Supabase session wins over admin cookie.
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return {
-      error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
-    };
+  if (user?.id) {
+    return { userId: user.id, supabase, isAdmin: false };
   }
-  return { userId: user.id, supabase };
+  const cookieStore = await cookies();
+  const isAdmin = await verifyAdminCookie(cookieStore.get(ADMIN_COOKIE_NAME)?.value);
+  if (isAdmin) {
+    return { userId: ADMIN_USER_ID, supabase: createAdminClient(), isAdmin: true };
+  }
+  return {
+    error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+  };
 }
 
 export async function GET() {
@@ -115,6 +150,14 @@ export async function POST(request: Request) {
     enqueueWikiJob(auth.userId, "product.add", data.id, {}).catch((e) => {
       console.warn("wiki enqueue (product.add) failed:", e);
     });
+    writeActivity(auth.supabase, auth.userId, auth.isAdmin, {
+      activity_type: "added_product",
+      product_name: data.product_name,
+      brand: data.brand,
+      rating: data.rating,
+      domain: data.domain,
+      product_id: data.id,
+    });
     return NextResponse.json({ product: data });
   } catch (error) {
     console.error("Failed to add product:", error);
@@ -155,6 +198,15 @@ export async function PATCH(request: Request) {
       update.domain = deriveDomain(update.category);
     }
 
+    // Capture previous rating so we can detect rating changes for activity events.
+    const { data: prev } = await auth.supabase
+      .from("user_products")
+      .select("rating")
+      .eq("id", id)
+      .eq("user_id", auth.userId)
+      .maybeSingle();
+    const prevRating = (prev as { rating?: string } | null)?.rating ?? null;
+
     const { data, error } = await auth.supabase
       .from("user_products")
       .update(update)
@@ -167,6 +219,19 @@ export async function PATCH(request: Request) {
     enqueueWikiJob(auth.userId, "product.update", id, {}).catch((e) => {
       console.warn("wiki enqueue (product.update) failed:", e);
     });
+    if (
+      typeof update.rating === "string" &&
+      update.rating !== prevRating
+    ) {
+      writeActivity(auth.supabase, auth.userId, auth.isAdmin, {
+        activity_type: "rated_product",
+        product_name: data.product_name,
+        brand: data.brand,
+        rating: data.rating,
+        domain: data.domain,
+        product_id: data.id,
+      });
+    }
     return NextResponse.json({ product: data });
   } catch (error) {
     console.error("Failed to update product:", error);
