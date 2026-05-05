@@ -1,12 +1,5 @@
-import { DomainView } from "@/components/domain/DomainView";
+import { redirect } from "next/navigation";
 
-export default function MakeupPage() {
-  return (
-    <DomainView
-      domain="makeup"
-      title="Your makeup"
-      tagline="Your shades, your style — logged and ready for every occasion."
-      accentVar="--gold"
-    />
-  );
+export default function Page() {
+  redirect("/me");
 }

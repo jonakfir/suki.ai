@@ -71,11 +71,13 @@ export function RoutineBanner() {
     const today = new Date().toISOString().slice(0, 10);
     const key = `suki:done:${userId}:${today}`;
     const raw = localStorage.getItem(key);
-    if (raw) {
+    if (!raw) return;
+    const t = setTimeout(() => {
       try {
         setDone(JSON.parse(raw) as Record<string, boolean>);
       } catch {}
-    }
+    }, 0);
+    return () => clearTimeout(t);
   }, [userId]);
 
   useEffect(() => {
