@@ -35,6 +35,7 @@ import {
   Camera,
   Sun,
   Moon,
+  Plus,
 } from "lucide-react";
 
 type Domain = "skincare" | "haircare" | "makeup";
@@ -296,23 +297,32 @@ export default function MePage() {
 
       {/* Tab content */}
       <div className="mt-4">
+        <div className="flex justify-end mb-3">
+          <Link
+            href={`/products?domain=${tab}`}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent text-white text-xs font-medium hover:bg-accent-deep transition-colors"
+          >
+            <Plus size={14} />
+            Add product
+          </Link>
+        </div>
         {tab === "skincare" && (
           <div className="space-y-4">
             <RoutineList title="Morning" icon={<Sun size={14} className="text-[var(--gold)]" />} steps={morningSteps} products={products} />
             <RoutineList title="Night"   icon={<Moon size={14} className="text-[var(--lavender)]" />} steps={eveningSteps} products={products} />
-            <ProductGrid items={byDomain.skincare} onPick={setActiveProduct} />
+            <ProductGrid items={byDomain.skincare} domain="skincare" onPick={setActiveProduct} />
           </div>
         )}
         {tab === "haircare" && (
-          <ProductGrid items={byDomain.haircare} onPick={setActiveProduct} />
+          <ProductGrid items={byDomain.haircare} domain="haircare" onPick={setActiveProduct} />
         )}
         {tab === "makeup" && (
           <div className="space-y-4">
             <Section title="Day">
-              <ProductGrid items={makeupDay} onPick={setActiveProduct} />
+              <ProductGrid items={makeupDay} domain="makeup" onPick={setActiveProduct} />
             </Section>
             <Section title="Night">
-              <ProductGrid items={makeupNight} onPick={setActiveProduct} />
+              <ProductGrid items={makeupNight} domain="makeup" onPick={setActiveProduct} />
             </Section>
           </div>
         )}
@@ -529,13 +539,26 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function ProductGrid({
   items,
+  domain,
   onPick,
 }: {
   items: UserProduct[];
+  domain?: Domain;
   onPick: (p: UserProduct) => void;
 }) {
   if (!items.length) {
-    return <p className="text-sm text-muted py-4">No products yet.</p>;
+    return (
+      <Card className="p-6 text-center">
+        <p className="text-sm text-muted mb-3">No products logged yet.</p>
+        <Link
+          href={domain ? `/products?domain=${domain}` : "/products"}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-accent text-white text-sm font-medium hover:bg-accent-deep transition-colors"
+        >
+          <Plus size={14} />
+          Add your first product
+        </Link>
+      </Card>
+    );
   }
   return (
     <ul className="grid grid-cols-2 gap-2">
