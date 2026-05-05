@@ -2,14 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Droplet, Scissors, Palette, User } from "lucide-react";
+import { Home, ShoppingBag, User } from "lucide-react";
 
 const tabs = [
-  { href: "/today",  label: "Today",  icon: Home },
-  { href: "/skin",   label: "Skin",   icon: Droplet },
-  { href: "/hair",   label: "Hair",   icon: Scissors },
-  { href: "/makeup", label: "Makeup", icon: Palette },
-  { href: "/me",     label: "Me",     icon: User },
+  { href: "/explore", label: "Explore", icon: Home },
+  { href: "/shop",    label: "Shop",    icon: ShoppingBag },
+  { href: "/me",      label: "Me",      icon: User },
 ];
 
 const PUBLIC_PREFIXES = ["/", "/auth", "/privacy", "/onboard"];
@@ -21,13 +19,29 @@ function isPublicPath(pathname: string) {
   );
 }
 
+function isActive(pathname: string, href: string) {
+  if (href === "/explore") {
+    return (
+      pathname === "/explore" ||
+      pathname.startsWith("/explore/") ||
+      /^\/profile\/[^/]+$/.test(pathname)
+    );
+  }
+  if (href === "/me") {
+    return pathname === "/me" || pathname.startsWith("/me/");
+  }
+  if (href === "/shop") {
+    return pathname === "/shop" || pathname.startsWith("/shop/");
+  }
+  return false;
+}
+
 export function BottomTabNav() {
   const pathname = usePathname();
   if (isPublicPath(pathname)) return null;
 
   return (
     <>
-      {/* Spacer so content doesn't sit under the fixed nav on mobile */}
       <div aria-hidden className="h-20 sm:hidden" />
 
       <nav
@@ -35,12 +49,9 @@ export function BottomTabNav() {
         className="fixed bottom-0 inset-x-0 z-50 sm:hidden glass border-t border-[var(--card-border)]"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
-        <ul className="max-w-2xl mx-auto grid grid-cols-5">
+        <ul className="max-w-2xl mx-auto grid grid-cols-3">
           {tabs.map(({ href, label, icon: Icon }) => {
-            const active =
-              href === "/today"
-                ? pathname === "/today" || pathname === "/dashboard"
-                : pathname === href || pathname.startsWith(href + "/");
+            const active = isActive(pathname, href);
             return (
               <li key={href} className="flex">
                 <Link

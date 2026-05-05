@@ -4,21 +4,29 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Logo } from "./Logo";
-import { User, Home, Droplet, Scissors, Palette, Search } from "lucide-react";
+import { User, Home, ShoppingBag, Search } from "lucide-react";
 
 const authedLinks = [
-  { href: "/today",  label: "Today",  icon: Home },
-  { href: "/skin",   label: "Skin",   icon: Droplet },
-  { href: "/hair",   label: "Hair",   icon: Scissors },
-  { href: "/makeup", label: "Makeup", icon: Palette },
-  { href: "/me",     label: "Me",     icon: User },
+  { href: "/explore", label: "Explore", icon: Home },
+  { href: "/shop",    label: "Shop",    icon: ShoppingBag },
+  { href: "/me",      label: "Me",      icon: User },
 ];
 
 function isActive(pathname: string, href: string) {
-  if (href === "/today") {
-    return pathname === "/today" || pathname === "/dashboard";
+  if (href === "/explore") {
+    return (
+      pathname === "/explore" ||
+      pathname.startsWith("/explore/") ||
+      /^\/profile\/[^/]+$/.test(pathname)
+    );
   }
-  return pathname === href || pathname.startsWith(href + "/");
+  if (href === "/me") {
+    return pathname === "/me" || pathname.startsWith("/me/");
+  }
+  if (href === "/shop") {
+    return pathname === "/shop" || pathname.startsWith("/shop/");
+  }
+  return false;
 }
 
 export function Nav() {
@@ -46,13 +54,12 @@ export function Nav() {
     return () => clearTimeout(id);
   }, []);
 
-  // Native landing ships its own hero/CTAs full-bleed — don't draw a nav over it.
   if (isNativeApp && isLanding) return null;
 
   return (
     <nav className="sticky top-0 z-50 glass">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
-        <Link href={isLanding || isAuth || isOnboarding ? "/" : "/today"}>
+        <Link href={isLanding || isAuth || isOnboarding ? "/" : "/explore"}>
           <Logo size="md" />
         </Link>
 
@@ -66,7 +73,6 @@ export function Nav() {
           </Link>
         ) : (
           <div className="flex items-center gap-0.5 sm:gap-1">
-            {/* Desktop links — hidden on mobile (bottom nav takes over) */}
             <div className="hidden sm:flex items-center gap-1">
               {authedLinks.map(({ href, label, icon: Icon }) => (
                 <Link
