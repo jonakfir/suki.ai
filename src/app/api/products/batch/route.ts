@@ -87,6 +87,51 @@ interface IncomingProduct {
   category: string;
   notes?: string;
   domain?: "skincare" | "haircare" | "makeup";
+  barcode?: string | null;
+  ingredients?: string[];
+  image_url?: string | null;
+}
+
+/**
+ * Open Beauty Facts is the only external source we currently trust for
+ * product imagery. The save/route stores any image_url verbatim today —
+ * we keep that behavior for parity but require the URL to be https on a
+ * known host before persisting (defence-in-depth against client-supplied
+ * URLs sneaking through batch saves).
+ */
+const ALLOWED_IMAGE_HOSTS = new Set([
+  "world.openbeautyfacts.org",
+  "static.openbeautyfacts.org",
+  "images.openbeautyfacts.org",
+  "images.pexels.com",
+]);
+
+function sanitizeImageUrl(input: unknown): string | null {
+  if (typeof input !== "string" || !input.trim()) return null;
+  try {
+    const url = new URL(input);
+    if (url.protocol !== "https:") return null;
+    if (!ALLOWED_IMAGE_HOSTS.has(url.hostname.toLowerCase())) return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function sanitizeBarcode(input: unknown): string | null {
+  if (typeof input !== "string") return null;
+  const trimmed = input.trim();
+  if (!/^\d{8,14}$/.test(trimmed)) return null;
+  return trimmed;
+}
+
+function sanitizeIngredients(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .filter((s): s is string => typeof s === "string")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .slice(0, 60);
 }
 
 export async function POST(request: Request) {
@@ -114,9 +159,9 @@ export async function POST(request: Request) {
         rating: "neutral" as const,
         is_current: true,
         is_saved: true,
-        ingredients: [],
-        image_url: null,
-        barcode: null,
+        ingredients: sanitizeIngredients(p.ingredients),
+        image_url: sanitizeImageUrl(p.image_url),
+        barcode: sanitizeBarcode(p.barcode),
       };
     });
 
