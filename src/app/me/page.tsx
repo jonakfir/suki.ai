@@ -36,6 +36,7 @@ import {
   Sun,
   Moon,
   Plus,
+  Sparkles,
 } from "lucide-react";
 
 type Domain = "skincare" | "haircare" | "makeup";
@@ -435,6 +436,18 @@ export default function MePage() {
             <div className="flex-1">
               <div className="text-sm font-medium">Your Beauty Wiki</div>
               <p className="text-xs text-muted">Auto-maintained notes on your skin & products.</p>
+            </div>
+            <ArrowRight size={14} className="text-muted" />
+          </Card>
+        </Link>
+        <Link href="/skin-profile" className="block mt-4">
+          <Card className="p-5 flex items-center gap-3 hover:border-accent/40 transition-colors">
+            <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center shrink-0">
+              <Sparkles size={16} className="text-accent-deep" />
+            </div>
+            <div className="flex-1">
+              <div className="text-sm font-medium">View your skin profile</div>
+              <p className="text-xs text-muted">AI observations from your selfie — never medical advice.</p>
             </div>
             <ArrowRight size={14} className="text-muted" />
           </Card>
