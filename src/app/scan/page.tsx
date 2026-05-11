@@ -26,6 +26,8 @@ import {
   type BarcodeScannerError,
 } from "@/components/scan/BarcodeScanner";
 import { createDetector } from "@/lib/barcode/detector";
+import { CohortBadge } from "@/components/social/CohortBadge";
+import { productKey, type CohortInfo } from "@/lib/cohort";
 
 interface IdentifiedProduct {
   name: string;
@@ -114,9 +116,137 @@ export default function ScanPage() {
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Cohort-based social proof for each identified product.
+  // undefined = loading, null = nothing to show, CohortInfo = render badge.
+  const [cohorts, setCohorts] = useState<
+    Record<number, CohortInfo | null | undefined>
+  >({});
+  const cohortDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cohortReqIdRef = useRef(0);
+
+  /**
+   * Fetch cohort summaries for the given list of products. Caller is
+   * responsible for marking the rows as loading first. Latest-wins:
+   * `cohortReqIdRef` discards stale responses when the user edits twice
+   * inside the debounce window.
+   */
+  const fetchCohorts = useCallback(
+    async (
+      products: IdentifiedProduct[],
+      indexById: Map<string, number>
+    ): Promise<void> => {
+      if (products.length === 0) return;
+      const myReqId = ++cohortReqIdRef.current;
+      try {
+        const res = await fetch("/api/products/cohort", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            products: products.map((p) => ({
+              name: p.name,
+              brand: p.brand,
+              domain: "skincare" as const,
+            })),
+          }),
+        });
+        if (myReqId !== cohortReqIdRef.current) return;
+        if (!res.ok) {
+          // Soft-fail: drop the loading state so the badge disappears rather
+          // than spinning forever.
+          setCohorts((prev) => {
+            const next = { ...prev };
+            for (const idx of indexById.values()) next[idx] = null;
+            return next;
+          });
+          return;
+        }
+        const data = (await res.json()) as {
+          results?: Array<{
+            product_key: string;
+            cohort: CohortInfo | null;
+          }>;
+        };
+        if (myReqId !== cohortReqIdRef.current) return;
+        const byKey = new Map(
+          (data.results ?? []).map((r) => [r.product_key, r.cohort])
+        );
+        setCohorts((prev) => {
+          const next = { ...prev };
+          for (const [key, idx] of indexById.entries()) {
+            next[idx] = byKey.has(key) ? byKey.get(key) ?? null : null;
+          }
+          return next;
+        });
+      } catch {
+        if (myReqId !== cohortReqIdRef.current) return;
+        setCohorts((prev) => {
+          const next = { ...prev };
+          for (const idx of indexById.values()) next[idx] = null;
+          return next;
+        });
+      }
+    },
+    []
+  );
+
   useEffect(() => {
-    if (analysis) setLocalProducts([...analysis.products]);
-  }, [analysis]);
+    if (analysis) {
+      const products = [...analysis.products];
+      setLocalProducts(products);
+      // Seed cohort state as loading for each product, then fire the lookup.
+      // Cohort fetch never blocks render — the badge falls back to a
+      // skeleton until results land.
+      if (products.length === 0) {
+        setCohorts({});
+        return;
+      }
+      const loading: Record<number, CohortInfo | null | undefined> = {};
+      const indexById = new Map<string, number>();
+      products.forEach((p, i) => {
+        loading[i] = undefined;
+        indexById.set(productKey(p.name, p.brand, "skincare"), i);
+      });
+      setCohorts(loading);
+      void fetchCohorts(products, indexById);
+    }
+  }, [analysis, fetchCohorts]);
+
+  // Debounced re-fetch when localProducts change (inline edit). 500ms.
+  // We only re-fetch the rows whose name|brand changed; everything else
+  // keeps its existing cohort.
+  useEffect(() => {
+    if (localProducts.length === 0) return;
+    if (cohortDebounceRef.current) clearTimeout(cohortDebounceRef.current);
+    // Build the index map up-front so the debounced callback uses the most
+    // recent state at the moment it fires.
+    const indexById = new Map<string, number>();
+    localProducts.forEach((p, i) => {
+      indexById.set(productKey(p.name, p.brand, "skincare"), i);
+    });
+    // Only rows we haven't already resolved (no cached cohort) need to refire.
+    const stale = localProducts
+      .map((p, i) => ({ p, i }))
+      .filter(({ i }) => cohorts[i] === undefined);
+    if (stale.length === 0) return;
+    cohortDebounceRef.current = setTimeout(() => {
+      void fetchCohorts(
+        stale.map((s) => s.p),
+        new Map(
+          stale.map((s) => [
+            productKey(s.p.name, s.p.brand, "skincare"),
+            s.i,
+          ])
+        )
+      );
+    }, 500);
+    return () => {
+      if (cohortDebounceRef.current) clearTimeout(cohortDebounceRef.current);
+    };
+    // We intentionally read `cohorts` inside the effect body — adding it to
+    // the dep array would loop. The deps cover every input that should
+    // schedule a re-fetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localProducts, fetchCohorts]);
 
   // Auto-dismiss the inline toast (used for "Found UPC …" success).
   useEffect(() => {
@@ -144,6 +274,7 @@ export default function ScanPage() {
         setLocalProducts([]);
         setEditingIndex(null);
         setSuggestions([]);
+        setCohorts({});
         if (fileInputRef.current) fileInputRef.current.value = "";
       } else {
         // Tearing down barcode draft.
@@ -152,6 +283,7 @@ export default function ScanPage() {
         setManualBarcode("");
         setAnalysis(null);
         setLocalProducts([]);
+        setCohorts({});
         if (barcodeFileRef.current) barcodeFileRef.current.value = "";
       }
       return next;
@@ -288,13 +420,16 @@ export default function ScanPage() {
 
   const confirmEdit = () => {
     if (editingIndex === null) return;
+    const idx = editingIndex;
     setLocalProducts((prev) =>
       prev.map((p, i) =>
-        i === editingIndex
+        i === idx
           ? { ...p, name: editName.trim() || p.name, brand: editBrand.trim() || p.brand }
           : p
       )
     );
+    // Mark this row as loading so the debounced effect refetches.
+    setCohorts((prev) => ({ ...prev, [idx]: undefined }));
     setEditingIndex(null);
     setSuggestions([]);
   };
@@ -381,6 +516,7 @@ export default function ScanPage() {
     setBarcodeRaw(null);
     setBarcodePanel({ kind: "initial" });
     setManualBarcode("");
+    setCohorts({});
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (barcodeFileRef.current) barcodeFileRef.current.value = "";
   };
@@ -775,6 +911,7 @@ export default function ScanPage() {
                                   {p.notes}
                                 </p>
                               )}
+                              <CohortBadge cohort={cohorts[i]} />
                             </div>
                             <button
                               type="button"
