@@ -270,3 +270,114 @@ export async function searchProducts(
     clearTimeout(timeoutId);
   }
 }
+
+/**
+ * Expand a UPC-E (8 digits) code into the equivalent UPC-A (12 digits).
+ * Returns null if the input is not a valid UPC-E.
+ *
+ * Reference: https://en.wikipedia.org/wiki/Universal_Product_Code#UPC-E
+ */
+function upcE_to_upcA(upcE: string): string | null {
+  if (!/^\d{8}$/.test(upcE)) return null;
+  const numberSystem = upcE[0];
+  if (numberSystem !== "0" && numberSystem !== "1") return null;
+  const body = upcE.slice(1, 7);
+  const check = upcE[7];
+
+  const m1 = body[0];
+  const m2 = body[1];
+  const m3 = body[2];
+  const m4 = body[3];
+  const m5 = body[4];
+  const last = body[5];
+
+  let manufacturer: string;
+  let item: string;
+  switch (last) {
+    case "0":
+    case "1":
+    case "2":
+      manufacturer = `${m1}${m2}${last}00`;
+      item = `00${m3}${m4}${m5}`;
+      break;
+    case "3":
+      manufacturer = `${m1}${m2}${m3}00`;
+      item = `000${m4}${m5}`;
+      break;
+    case "4":
+      manufacturer = `${m1}${m2}${m3}${m4}0`;
+      item = `0000${m5}`;
+      break;
+    default:
+      manufacturer = `${m1}${m2}${m3}${m4}${m5}`;
+      item = `0000${last}`;
+      break;
+  }
+  return `${numberSystem}${manufacturer}${item}${check}`;
+}
+
+/**
+ * Normalize a raw barcode string into a canonical EAN-13.
+ *
+ * - Strip whitespace.
+ * - Reject non-digit characters.
+ * - UPC-E (8 digits) → expand to UPC-A → left-pad to EAN-13.
+ * - UPC-A (12 digits) → left-pad with "0" to EAN-13.
+ * - EAN-8 (8 digits, not a UPC-E) and EAN-13 (13 digits) → pass through.
+ * - Anything else → null.
+ */
+export function normalizeBarcode(raw: string): string | null {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  if (!/^\d+$/.test(trimmed)) return null;
+
+  if (trimmed.length === 8) {
+    // Could be UPC-E or EAN-8. Try UPC-E expansion when leading digit is 0 or 1.
+    if (trimmed[0] === "0" || trimmed[0] === "1") {
+      const upcA = upcE_to_upcA(trimmed);
+      if (upcA) return `0${upcA}`;
+    }
+    return trimmed;
+  }
+  if (trimmed.length === 12) return `0${trimmed}`;
+  if (trimmed.length === 13) return trimmed;
+  return null;
+}
+
+/**
+ * Look up a single product on Open Beauty Facts by its (normalized) barcode.
+ *
+ * Uses the v2 product endpoint with the same FIELDS / 5s timeout / User-Agent
+ * as `searchProducts`. Returns null when the product is unknown or fails the
+ * same completeness/ingredient gates we apply to search results.
+ */
+export async function getProductByBarcode(
+  barcode: string
+): Promise<OBFProduct | null> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), OBF_TIMEOUT_MS);
+
+  try {
+    const url = `${OBF_BASE}/product/${encodeURIComponent(barcode)}.json?fields=${FIELDS}`;
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { "User-Agent": "SukiAI/1.0 (skincare-advisor)" },
+    });
+
+    if (!res.ok) {
+      console.warn(`OBF product lookup returned ${res.status}`);
+      return null;
+    }
+
+    const data = (await res.json()) as {
+      status?: number;
+      status_verbose?: string;
+      product?: OBFRawProduct;
+    };
+    if (data.status !== 1 || !data.product) return null;
+
+    return toOBFProduct(data.product);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}

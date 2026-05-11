@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import type { SkinAnalysisV1 } from "@/lib/skin-analysis-schema";
 
 export type SkinType = "oily" | "dry" | "combination" | "normal" | "sensitive";
 export type SkinTone = "fair" | "light" | "medium" | "tan" | "deep";
@@ -142,6 +143,9 @@ export interface SkinProfile {
   // social
   username?: string | null;
   is_public?: boolean;
+  // AI skin analysis (Plan C)
+  skin_analysis_json?: SkinAnalysisV1 | null;
+  skin_analysis_generated_at?: string | null;
 }
 
 export interface UserProduct {
@@ -232,6 +236,8 @@ const emptyProfile: SkinProfile = {
   initial_makeup_products: "",
   username: null,
   is_public: true,
+  skin_analysis_json: null,
+  skin_analysis_generated_at: null,
 };
 
 export const useStore = create<AppState>((set) => ({
